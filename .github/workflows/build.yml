@@ -61,6 +61,20 @@ jobs:
         run: |
           grep -E "^e: |error:|What went wrong" -A 2 build.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
 
+      - name: Compilación de medición (solo rama pruebas, no se publica)
+        if: github.ref == 'refs/heads/pruebas'
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          gradle assembleMeasure --no-daemon
+          cp app/build/outputs/apk/measure/app-measure.apk DolbyAtmos-measure.apk
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/pruebas'
+        with:
+          name: DolbyAtmos-measure
+          path: DolbyAtmos-measure.apk
+
       - name: Borrar la clave
         if: always()
         run: rm -f "$RUNNER_TEMP/audiomax.jks"

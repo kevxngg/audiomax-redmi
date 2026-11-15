@@ -36,6 +36,11 @@ android {
             signingConfig = if (ksPath != null) signingConfigs.getByName("release")
             else signingConfigs.getByName("debug")
         }
+        // Solo para auditar el sonido en el teléfono (captura con Visualizer); no se publica
+        create("measure") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+        }
     }
 
     compileOptions {
