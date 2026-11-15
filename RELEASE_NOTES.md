@@ -1,3 +1,4 @@
+## Dolby Atmos 1.2
 Auditoría del sonido: cada opción se midió en el teléfono, capturando el audio después de Dolby.
 
 - Se quitan las opciones que no cambian el sonido: amplitud, ángulo y distancia del virtualizador, atenuar el fondo al hablar, bajo virtual, volumen máximo de Dolby, protección auditiva, nivelador inteligente, compresor envolvente y modelador de volumen.
