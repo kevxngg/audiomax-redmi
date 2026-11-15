@@ -28,6 +28,24 @@ class LiveTestReceiver : BroadcastReceiver() {
                     val v = runCatching { fx.get(p, profile).joinToString(",") }.getOrElse { "ERR ${it.message}" }
                     log("${p.name}=$v")
                 }
+                val from = intent.getIntExtra("from", -1)
+                if (from >= 0) {
+                    val to = intent.getIntExtra("to", from + 100)
+                    for (id in from..to) {
+                        val r = runCatching { fx.getRaw(id, profile, 24) }
+                        r.onSuccess { v ->
+                            val n = v.indexOfLast { it != 0 } + 1
+                            log("ID $id = ${v.take(maxOf(n, 1)).joinToString(",")}")
+                        }
+                    }
+                    log("probe fin")
+                }
+                val setId = intent.getIntExtra("setid", -1)
+                if (setId >= 0) {
+                    val vals = (intent.getStringExtra("vals") ?: "0").split(",").map { it.trim().toInt() }.toIntArray()
+                    val r = runCatching { fx.setRaw(setId, vals, profile); fx.getRaw(setId, profile, vals.size).joinToString(",") }
+                    log("SET $setId -> ${r.getOrElse { "ERR ${it.message}" }}")
+                }
                 if (write) {
                     // Escribe el mismo valor que ya tiene (no cambia el sonido) para ver si se acepta
                     val r = runCatching {

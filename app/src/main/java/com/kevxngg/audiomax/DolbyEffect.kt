@@ -78,6 +78,24 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
         return IntArray(minOf(p.length, buf.size / 4)) { int(buf, it * 4) }
     }
 
+    /** Lectura/escritura por id numérico (para descubrir parámetros). */
+    fun getRaw(id: Int, profile: Int, length: Int): IntArray {
+        val buf = ByteArray((length + 2) * 4)
+        val p = (id shl 16) + (profile shl 8) + PARAM_GET_PROFILE_PARAMETER
+        check(gp(ib(p), buf), "getRaw($id)")
+        return IntArray(length) { int(buf, it * 4) }
+    }
+
+    fun setRaw(id: Int, values: IntArray, profile: Int) {
+        val buf = ByteArray((values.size + 4) * 4)
+        put(PARAM_SET_PROFILE_PARAMETER, buf, 0)
+        put(values.size + 1, buf, 4)
+        put(profile, buf, 8)
+        put(id, buf, 12)
+        values.forEachIndexed { i, v -> put(v, buf, 16 + i * 4) }
+        check(sp(ib(PARAM_CPDP_VALUES), buf), "setRaw($id)")
+    }
+
     fun release() = runCatching { fx.release() }
 
     companion object {
