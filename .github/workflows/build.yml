@@ -26,7 +26,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json name --jq '.[].name' | grep -Fxq "AudioMax $APP_VERSION"; then
+          if gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json name --jq '.[].name' | grep -Fxq "Dolby Atmos $APP_VERSION"; then
             echo "::error::La versión $APP_VERSION ya está publicada. Sube el número del archivo VERSION."
             exit 1
           fi
@@ -54,7 +54,7 @@ jobs:
         run: |
           set -o pipefail
           gradle testReleaseUnitTest assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
-          cp app/build/outputs/apk/release/app-release.apk AudioMax.apk
+          cp app/build/outputs/apk/release/app-release.apk DolbyAtmos.apk
 
       - name: Mostrar errores de compilación
         if: failure()
@@ -77,9 +77,9 @@ jobs:
           data = {
               "build": build,
               "notes": open("RELEASE_NOTES.md", encoding="utf-8").read(),
-              "apk": f"https://github.com/{repo}/releases/download/build-{build}/AudioMax.apk",
-              "size": os.path.getsize("AudioMax.apk"),
-              "sha256": hashlib.sha256(open("AudioMax.apk", "rb").read()).hexdigest(),
+              "apk": f"https://github.com/{repo}/releases/download/build-{build}/DolbyAtmos.apk",
+              "size": os.path.getsize("DolbyAtmos.apk"),
+              "sha256": hashlib.sha256(open("DolbyAtmos.apk", "rb").read()).hexdigest(),
               "min_build": min_build,
               "version": os.environ["APP_VERSION"],
           }
@@ -88,16 +88,16 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AudioMax
-          path: AudioMax.apk
+          name: DolbyAtmos
+          path: DolbyAtmos.apk
 
       - name: Publicar en Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: AudioMax ${{ env.APP_VERSION }}
+          name: Dolby Atmos ${{ env.APP_VERSION }}
           files: |
-            AudioMax.apk
+            DolbyAtmos.apk
             update.json
           body_path: RELEASE_NOTES.md

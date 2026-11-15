@@ -44,9 +44,9 @@ data class UpdateInfo(
 
 /** Busca nuevas versiones en las Releases de GitHub y las instala con root. */
 object Updater {
-    private const val REPO = "kevxngg/audiomax-redmi"
+    private const val REPO = "kevxngg/dolby-atmos-obsidian"
     private const val FEED = "https://github.com/$REPO/releases/latest/download/update.json"
-    private const val TMP = "/data/local/tmp/audiomax-update.apk"
+    private const val TMP = "/data/local/tmp/dolbyatmos-update.apk"
 
     @Volatile private var snoozedBuild = 0
     @Volatile private var snoozedUntil = 0L
@@ -77,7 +77,7 @@ object Updater {
             conn.useCaches = false
             conn.instanceFollowRedirects = true
             conn.setRequestProperty("Cache-Control", "no-cache")
-            conn.setRequestProperty("User-Agent", "AudioMax-Android")
+            conn.setRequestProperty("User-Agent", "DolbyAtmos-Android")
             if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
             conn.inputStream.bufferedReader().use { it.readText() }
         } finally {
