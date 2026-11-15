@@ -45,13 +45,13 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
     private fun setInt(param: Int, value: Int) {
         val buf = ByteArray(12)
         put(param, buf, 0); put(1, buf, 4); put(value, buf, 8)
-        check(fx.setParameter(PARAM_CPDP_VALUES, buf), "setInt($param)")
+        check(fx.setParameter(ib(PARAM_CPDP_VALUES), buf), "setInt($param)")
     }
 
     private fun getInt(param: Int): Int {
         val buf = ByteArray(12)
         put(param, buf, 0)
-        check(fx.getParameter(PARAM_CPDP_VALUES + param, buf), "getInt($param)")
+        check(fx.getParameter(ib(PARAM_CPDP_VALUES + param), buf), "getInt($param)")
         return int(buf, 0)
     }
 
@@ -62,7 +62,7 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
         put(profile, buf, 8)
         put(p.id, buf, 12)
         values.forEachIndexed { i, v -> put(v, buf, 16 + i * 4) }
-        check(fx.setParameter(PARAM_CPDP_VALUES, buf), "set($p)")
+        check(fx.setParameter(ib(PARAM_CPDP_VALUES), buf), "set($p)")
     }
 
     fun set(p: Param, value: Int, profile: Int) = set(p, intArrayOf(value), profile)
@@ -71,7 +71,7 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
     fun get(p: Param, profile: Int): IntArray {
         val buf = ByteArray((p.length + 2) * 4)
         val id = (p.id shl 16) + (profile shl 8) + PARAM_GET_PROFILE_PARAMETER
-        check(fx.getParameter(id, buf), "get($p)")
+        check(fx.getParameter(ib(id), buf), "get($p)")
         return IntArray(minOf(p.length, buf.size / 4)) { int(buf, it * 4) }
     }
 
@@ -98,6 +98,8 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
             Log.i(TAG, "DAP abierto, control=${fx.hasControl()}")
             return DolbyEffect(fx)
         }
+
+        private fun ib(v: Int) = ByteArray(4).also { put(v, it, 0) }
 
         private fun put(v: Int, b: ByteArray, i: Int) {
             b[i] = (v and 0xff).toByte()
