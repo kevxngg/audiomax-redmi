@@ -25,4 +25,4 @@ Por perfil (Dinámico, Película, Música, Voz) y salida (altavoz / auriculares,
 
 ## Compilación
 
-GitHub Actions compila un APK firmado en cada push a `main` (artefacto `AudioMax-apk`).
+GitHub Actions compila y firma la APK en cada push a `main` y la publica en Releases junto a `update.json`. La app revisa cada hora, avisa con una notificación ("Actualizar ahora") y se instala con root. Para publicar una versión nueva: subir `VERSION` y escribir `RELEASE_NOTES.md`.

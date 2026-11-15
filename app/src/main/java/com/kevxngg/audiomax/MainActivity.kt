@@ -71,7 +71,29 @@ fun App(store: DolbyStore) {
             busy = false
         }
     }
-    LaunchedEffect(Unit) { reload() }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var update by remember { mutableStateOf<UpdateInfo?>(null) }
+    var updateMsg by remember { mutableStateOf<String?>(null) }
+    fun checkUpdate(manual: Boolean) {
+        scope.launch {
+            val info = withContext(Dispatchers.IO) { Updater.fetch(ctx) }
+            when {
+                info == null -> if (manual) updateMsg = "No se pudo consultar GitHub"
+                Updater.isOffered(ctx, info, ignoreSkipped = manual) && (manual || !Updater.isSnoozed(info.build)) -> update = info
+                else -> if (manual) updateMsg = "Tienes la última versión"
+            }
+        }
+    }
+    LaunchedEffect(Unit) {
+        reload()
+        UpdateWorker.schedule(ctx)
+        withContext(Dispatchers.IO) { runCatching { UpdateWorker.prepare(ctx) } }
+        checkUpdate(false)
+    }
+    LaunchedEffect(updateMsg) { updateMsg?.let { snack.showSnackbar(it); updateMsg = null } }
+    update?.let { info ->
+        UpdateDialog(info, required = Updater.isRequired(ctx, info)) { update = null }
+    }
 
     fun applyAction(action: suspend () -> Root.Result, msg: String) {
         scope.launch {
@@ -235,6 +257,9 @@ fun App(store: DolbyStore) {
             }
 
             Hint("Al aplicar, el audio se corta un segundo mientras Dolby se reinicia.")
+            TextButton(onClick = { checkUpdate(true) }, Modifier.fillMaxWidth()) {
+                Text("Buscar actualizaciones · v${Updater.currentVersion(ctx)}")
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
