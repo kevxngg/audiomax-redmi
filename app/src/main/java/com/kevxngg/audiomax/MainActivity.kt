@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { MAIN, EQ }
+private enum class Screen { MAIN, EQ, ABOUT }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,7 +169,7 @@ fun App(store: DolbyStore) {
     }
     update?.let { info -> UpdateDialog(info, required = Updater.isRequired(ctx, info)) { update = null } }
 
-    BackHandler(screen == Screen.EQ) { screen = Screen.MAIN }
+    BackHandler(screen != Screen.MAIN) { screen = Screen.MAIN }
 
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
@@ -178,9 +178,9 @@ fun App(store: DolbyStore) {
         topBar = {
             Column {
                 LargeTopAppBar(
-                    title = { Text(if (screen == Screen.EQ) "Ecualizador" else "Dolby Atmos") },
+                    title = { Text(when (screen) { Screen.EQ -> "Ecualizador"; Screen.ABOUT -> "Acerca de"; else -> "Dolby Atmos" }) },
                     navigationIcon = {
-                        if (screen == Screen.EQ) IconButton(onClick = { screen = Screen.MAIN }) {
+                        if (screen != Screen.MAIN) IconButton(onClick = { screen = Screen.MAIN }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás")
                         }
                     },
@@ -262,6 +262,10 @@ fun App(store: DolbyStore) {
             val tun = s.tuning[endpoint] ?: emptyMap()
             val gains = s.geq[profile]
 
+            if (screen == Screen.ABOUT) {
+                AboutScreen()
+                return@Column
+            }
             if (screen == Screen.EQ) {
                 if (gains != null) EqScreen(
                     gains = gains, freqs = s.geqFreqs, enabled = on && b("graphic_equalizer_enable"),
@@ -495,6 +499,8 @@ fun App(store: DolbyStore) {
                     NavPref("Restablecer valores", "Vuelve a como estaba la primera vez que abriste la app") { confirmReset = true }
                     PrefDivider()
                     NavPref("Actualizaciones", "Versión ${Updater.currentVersion(ctx)} · Buscar ahora") { checkUpdate(true) }
+                    PrefDivider()
+                    NavPref("Acerca de", "Créditos y código fuente") { screen = Screen.ABOUT }
                 }
                 Spacer(Modifier.height(24.dp))
             }
