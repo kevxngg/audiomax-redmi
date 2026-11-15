@@ -19,9 +19,12 @@ class DolbyEffect private constructor(private val fx: AudioEffect) {
         VOLUME_LEVELER_ENABLE(103),
         IEQ_PRESET(104),
         DIALOGUE_ENHANCER_ENABLE(105),
+        IEQ_AMOUNT(107),
         DIALOGUE_ENHANCER_AMOUNT(108),
+        VOLUME_LEVELER_AMOUNT(109),
         GEQ_BAND_GAINS(110, 20),
         BASS_ENHANCER_ENABLE(111),
+        VIRTUAL_BASS_ENABLE(112),
         STEREO_WIDENING_AMOUNT(113),
     }
 

@@ -61,7 +61,7 @@ fun App(store: DolbyStore) {
     var screen by remember { mutableStateOf(Screen.MAIN) }
     var confirmReset by remember { mutableStateOf(false) }
     var live by remember { mutableStateOf(false) }
-    var advDirty by remember { mutableStateOf(false) }
+    val tone = remember { ToneStore(ctx) }
     val dirty = remember { mutableSetOf<String>() }
     val userPresets = remember { UserPresets(ctx) }
     var presets by remember { mutableStateOf(userPresets.all()) }
@@ -76,20 +76,22 @@ fun App(store: DolbyStore) {
                     st
                 }
             }
-            r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null; advDirty = false }
+            r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null }
                 .onFailure { errMsg = it.message }
         }
     }
 
     // Guardado en la base de datos sin reiniciar (para que dure tras reiniciar el teléfono)
     var persistJob by remember { mutableStateOf<Job?>(null) }
+    var deferredPending by remember { mutableStateOf(false) }
     fun persist() {
         persistJob?.cancel()
         persistJob = scope.launch {
-            delay(1500)
+            delay(1200)
             val s = state ?: return@launch
             withContext(Dispatchers.IO) { runCatching { store.save(s.copy(activeProfile = profile), restart = false) } }
-            SyncWorker.schedule(ctx)
+            SyncWorker.schedule(ctx, soon = deferredPending)
+            deferredPending = false
         }
     }
 
@@ -115,17 +117,10 @@ fun App(store: DolbyStore) {
         }
     }
 
-    /** Ajustes avanzados: necesitan reiniciar Dolby (corte breve). */
-    fun applyAdvanced() {
-        val s = state ?: return
-        persistJob?.cancel()
-        scope.launch {
-            applying = true
-            val r = withContext(Dispatchers.IO) { runCatching { store.save(s.copy(activeProfile = profile), restart = true) } }
-            applying = false
-            if (r.getOrNull()?.out?.contains("OK") == true) advDirty = false
-            else snack.showSnackbar("No se pudo aplicar")
-        }
+    /** Ajustes que Dolby no deja cambiar en vivo: se guardan y se aplican solos al pausar. */
+    fun deferred() {
+        deferredPending = true
+        persist()
     }
 
     // Sigue a la salida en uso y reaplica los ajustes (Dolby recarga los antiguos al cambiar)
@@ -221,23 +216,36 @@ fun App(store: DolbyStore) {
             val pe = s.pe[key] ?: emptyMap()
             fun b(k: String) = pe[k] == "1"
             fun i(k: String) = pe[k]?.toIntOrNull() ?: 0
-            fun setPe(vararg kv: Pair<String, String>) {
+            fun bool(v: Boolean) = if (v) "1" else "0"
+            fun done() { if (live) commit() else persist() }
+            /** Cambia columnas: en vivo si se puede; si no, se guarda y se aplica al pausar. */
+            fun change(vararg kv: Pair<String, String>, now: Boolean = true) {
                 val st = state ?: return
                 val cur = st.pe[key] ?: return
                 state = st.copy(pe = st.pe + (key to (cur + kv)))
-                kv.forEach { (k, _) -> if (k in Live.KEYS) dirty.add(k) else advDirty = true }
+                dirty.addAll(kv.map { it.first }.filter { it in Live.KEYS })
+                if (kv.any { it.first in Live.DEFERRED }) deferredPending = true
+                if (now) done()
             }
             fun setTun(k: String, v: String) {
                 val st = state ?: return
                 val cur = st.tuning[endpoint] ?: return
                 state = st.copy(tuning = st.tuning + (endpoint to (cur + (k to v))))
-                advDirty = true
+                deferredPending = true
             }
-            fun bool(v: Boolean) = if (v) "1" else "0"
-            /** En vivo si hay control; si no, todo se trata como avanzado (reinicio). */
-            fun change(vararg kv: Pair<String, String>) {
-                setPe(*kv)
-                if (live) commit() else applyAdvanced()
+            /** Cambia la curva del ecualizador y la manda en vivo mientras se mueve el control. */
+            fun setGeq(g: List<Int>) {
+                val st = state ?: return
+                val ns = st.copy(geq = st.geq + (profile to g))
+                state = ns
+                dirty.add("geq")
+                if (live && endpoint == activeEp && liveBusy.compareAndSet(false, true)) {
+                    val p = profile
+                    val ep = endpoint
+                    scope.launch(Dispatchers.IO) {
+                        try { Live.apply(ns, p, ep, setOf("geq")) } finally { liveBusy.set(false) }
+                    }
+                }
             }
             val on = s.dolbyOn
             val tun = s.tuning[endpoint] ?: emptyMap()
@@ -248,21 +256,8 @@ fun App(store: DolbyStore) {
                     gains = gains, freqs = s.geqFreqs, enabled = on && b("graphic_equalizer_enable"),
                     live = live && endpoint == activeEp, user = presets,
                     onEnabled = { change("graphic_equalizer_enable" to bool(it)) },
-                    onChange = { g ->
-                        dirty.add("geq")
-                        state?.let { st ->
-                            val ns = st.copy(geq = st.geq + (profile to g))
-                            state = ns
-                            // Suena mientras arrastras (si una aplicación sigue en curso, se salta)
-                            if (live && endpoint == activeEp && liveBusy.compareAndSet(false, true)) {
-                                val p = profile; val ep = endpoint
-                                scope.launch(Dispatchers.IO) {
-                                    try { Live.apply(ns, p, ep, setOf("geq")) } finally { liveBusy.set(false) }
-                                }
-                            }
-                        }
-                    },
-                    onDone = { if (live) commit() else applyAdvanced() },
+                    onChange = { g -> setGeq(g) },
+                    onDone = { done() },
                     onSavePreset = { n -> userPresets.save(n, gains); presets = userPresets.all() },
                     onDeletePreset = { n -> userPresets.delete(n); presets = userPresets.all() },
                 )
@@ -272,11 +267,12 @@ fun App(store: DolbyStore) {
 
             Column(Modifier.padding(horizontal = 16.dp)) {
                 MainSwitchBar("Usar Dolby Atmos", on) { v ->
-                    state = state?.copy(dolbyOn = v); dirty.add("dolbyOn")
-                    if (live) commit() else applyAdvanced()
+                    state = state?.copy(dolbyOn = v)
+                    dirty.add("dolbyOn")
+                    done()
                 }
                 Text(
-                    if (live) "● Cambios en vivo, sin cortar la música" else "Sin control en vivo: los cambios reinician el audio un instante",
+                    if (live) "● Cambios en vivo, sin cortar la música" else "Sin control en vivo: los cambios se aplican al reiniciar el audio",
                     Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp),
                     color = if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
@@ -284,8 +280,9 @@ fun App(store: DolbyStore) {
 
                 PrefGroup {
                     ListPref("Perfil", DolbyStore.PROFILES, profile, enabled = on) {
-                        profile = it; dirty.add("profile")
-                        if (live) commit() else applyAdvanced()
+                        profile = it
+                        dirty.add("profile")
+                        done()
                     }
                     PrefDivider()
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
@@ -328,58 +325,102 @@ fun App(store: DolbyStore) {
                         if (v == 0) change("ieq_enable" to "0")
                         else change("ieq_enable" to "1", "selected_ieq_preset_id" to v.toString())
                     }
+                    if (ieq != 0) SliderPref(
+                        "Intensidad", i("ieq_amount"), 0, 16, 1, on, { "$it" },
+                        { change("ieq_amount" to it.toString(), now = false) }, { done() }
+                    )
                 }
 
-                PrefGroup("Efectos") {
+                PrefGroup("Graves") {
                     SwitchPref("Realce de bajos", "Graves más potentes sin saturar", b("bass_enhancer_enable"), on) {
                         change("bass_enhancer_enable" to bool(it))
                     }
-                    PrefDivider()
+                    if (b("bass_enhancer_enable") && gains != null) {
+                        val lvl = tone.bass(profile)
+                        val curve = tone.curve(profile)
+                        SliderPref(
+                            "Nivel de bajos", lvl, 0, 12, 1, on, { "+$it dB" },
+                            { v ->
+                                val old = tone.bass(profile)
+                                val g = state?.geq?.get(profile)
+                                if (v != old && g != null) {
+                                    setGeq(ToneStore.withBass(ToneStore.withBass(g, old, curve, -1), v, curve, 1))
+                                    tone.set(profile, bass = v)
+                                }
+                            },
+                            { done() },
+                        )
+                        ListPref("Tipo de graves", ToneStore.CURVES, curve, enabled = on) { c ->
+                            val g = state?.geq?.get(profile)
+                            if (c != curve && g != null) {
+                                setGeq(ToneStore.withBass(ToneStore.withBass(g, lvl, curve, -1), lvl, c, 1))
+                                tone.set(profile, curve = c)
+                                done()
+                            }
+                        }
+                        if (endpoint == "speaker") SwitchPref(
+                            "Bajo virtual", "Graves perceptibles en altavoces pequeños", b("virtual_bass_enable"), on
+                        ) { change("virtual_bass_enable" to bool(it)) }
+                        SliderPref(
+                            "Refuerzo interno de Dolby", tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0,
+                            0, if (endpoint == "speaker") 192 else 288, 8, on, ::db,
+                            { setTun("bass_enhancer_boost", it.toString()) }, { deferred() }
+                        )
+                        FooterText("El nivel y el tipo de graves suenan al momento. El refuerzo interno de Dolby se aplica solo cuando pausas la música.")
+                    }
+                }
+
+                PrefGroup("Espacio y voz") {
                     SwitchPref("Sonido envolvente", "Escena más amplia y envolvente", b("virtualizer_enable"), on) {
                         change("virtualizer_enable" to bool(it))
+                    }
+                    if (b("virtualizer_enable")) {
+                        SliderPref(
+                            "Amplitud", i("surround_boost"), 0, 96, 4, on, ::db,
+                            { change("surround_boost" to it.toString(), now = false) }, { deferred() }
+                        )
+                        FooterText("La amplitud se aplica cuando pausas la música.")
                     }
                     PrefDivider()
                     SwitchPref("Realce de diálogos", "Voces más claras en vídeos y películas", b("dialog_enhancer_enable"), on) {
                         change("dialog_enhancer_enable" to bool(it))
                     }
-                    PrefDivider()
+                    if (b("dialog_enhancer_enable")) SliderPref(
+                        "Intensidad", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
+                        { change("dialog_enhancer_amount" to it.toString(), now = false) }, { done() }
+                    )
+                }
+
+                PrefGroup("Volumen") {
                     SwitchPref("Nivelador de volumen", "Volumen parejo entre canciones y apps", b("volume_leveler_enable"), on) {
                         change("volume_leveler_enable" to bool(it))
                     }
-                }
-
-                PrefGroup("Avanzado") {
-                    FooterText("Estos ajustes necesitan reiniciar Dolby: se aplican con el botón y la música se corta un instante.")
-                    SliderPref(
-                        "Intensidad del realce de bajos", tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0,
-                        0, if (endpoint == "speaker") 192 else 288, 8, on, ::db,
-                        { setTun("bass_enhancer_boost", it.toString()) }, {}
+                    if (b("volume_leveler_enable")) SliderPref(
+                        "Intensidad", i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
+                        { change("volume_leveler_amount" to it.toString(), now = false) }, { done() }
+                    )
+                    PrefDivider()
+                    if (gains != null) SliderPref(
+                        "Ganancia extra", tone.gain(profile), 0, 6, 1, on, { "+$it dB" },
+                        { v ->
+                            val old = tone.gain(profile)
+                            val g = state?.geq?.get(profile)
+                            if (v != old && g != null) {
+                                setGeq(ToneStore.withGain(ToneStore.withGain(g, old, -1), v, 1))
+                                tone.set(profile, gain = v)
+                            }
+                        },
+                        { done() },
                     )
                     SliderPref(
-                        "Frecuencia de corte de bajos", tun["bass_enhancer_cutoff_frequency"]?.toIntOrNull() ?: 160,
-                        60, 300, 10, on, { "$it Hz" },
-                        { setTun("bass_enhancer_cutoff_frequency", it.toString()) }, {}
+                        "Volumen máximo de Dolby", i("volmax_boost"), 0, 144, 4, on, ::db,
+                        { change("volmax_boost" to it.toString(), now = false) }, { deferred() }
                     )
-                    SliderPref("Intensidad del ecualizador inteligente", i("ieq_amount"), 0, 16, 1, on, { "$it" },
-                        { setPe("ieq_amount" to it.toString()) }, {})
-                    SliderPref("Amplitud envolvente", i("surround_boost"), 0, 96, 4, on, ::db,
-                        { setPe("surround_boost" to it.toString()) }, {})
-                    SliderPref("Intensidad de diálogos", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
-                        { setPe("dialog_enhancer_amount" to it.toString()) }, {})
-                    SliderPref("Intensidad del nivelador", i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
-                        { setPe("volume_leveler_amount" to it.toString()) }, {})
-                    SliderPref("Volumen máximo extra", i("volmax_boost"), 0, 144, 4, on, ::db,
-                        { setPe("volmax_boost" to it.toString()) }, {})
-                    if (endpoint == "speaker") SwitchPref(
-                        "Bajo virtual", "Graves perceptibles en altavoces pequeños", b("virtual_bass_enable"), on
-                    ) { setPe("virtual_bass_enable" to bool(it)) }
-                    SwitchPref(
-                        "Protección auditiva", "Limita el volumen alto sostenido", b("hearing_protection_enable"), on
-                    ) { setPe("hearing_protection_enable" to bool(it)) }
-                    Button(
-                        onClick = { applyAdvanced() }, enabled = advDirty && !applying,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
-                    ) { Text(if (advDirty) "Aplicar ajustes avanzados" else "Sin cambios pendientes") }
+                    SwitchPref("Protección auditiva", "Limita el volumen alto sostenido", b("hearing_protection_enable"), on) {
+                        change("hearing_protection_enable" to bool(it), now = false)
+                        deferred()
+                    }
+                    FooterText("La ganancia extra suena al momento. El volumen máximo de Dolby y la protección auditiva se aplican cuando pausas la música.")
                 }
 
                 PrefGroup("General") {

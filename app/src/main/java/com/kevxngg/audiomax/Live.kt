@@ -17,7 +17,11 @@ object Live {
         "dolbyOn", "profile", "geq", "graphic_equalizer_enable",
         "bass_enhancer_enable", "virtualizer_enable", "volume_leveler_enable",
         "ieq_enable", "selected_ieq_preset_id", "dialog_enhancer_enable",
+        "ieq_amount", "dialog_enhancer_amount", "volume_leveler_amount", "virtual_bass_enable",
     )
+
+    /** No se pueden en vivo: se guardan y se aplican solos cuando no suena música. */
+    val DEFERRED = setOf("tuning", "volmax_boost", "surround_boost", "hearing_protection_enable")
 
     private val PROFILE_KEYS = KEYS - setOf("dolbyOn", "profile")
 
@@ -89,6 +93,10 @@ object Live {
             )
             "volume_leveler_enable" -> f.set(DolbyEffect.Param.VOLUME_LEVELER_ENABLE, on(c), profile)
             "dialog_enhancer_enable" -> f.set(DolbyEffect.Param.DIALOGUE_ENHANCER_ENABLE, on(c), profile)
+            "ieq_amount" -> f.set(DolbyEffect.Param.IEQ_AMOUNT, pe[c]?.toIntOrNull() ?: 0, profile)
+            "dialog_enhancer_amount" -> f.set(DolbyEffect.Param.DIALOGUE_ENHANCER_AMOUNT, pe[c]?.toIntOrNull() ?: 0, profile)
+            "volume_leveler_amount" -> f.set(DolbyEffect.Param.VOLUME_LEVELER_AMOUNT, pe[c]?.toIntOrNull() ?: 0, profile)
+            "virtual_bass_enable" -> f.set(DolbyEffect.Param.VIRTUAL_BASS_ENABLE, on(c), profile)
             "ieq_enable", "selected_ieq_preset_id" -> if (done.add("ieq")) f.set(
                 DolbyEffect.Param.IEQ_PRESET,
                 if (on("ieq_enable")) pe["selected_ieq_preset_id"]?.toIntOrNull() ?: 0 else 0, profile

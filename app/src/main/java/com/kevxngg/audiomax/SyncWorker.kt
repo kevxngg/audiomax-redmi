@@ -26,10 +26,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     }
 
     companion object {
-        fun schedule(ctx: Context) {
+        /** soon = hay ajustes que solo se aplican así (amplitud, protección…): probar enseguida. */
+        fun schedule(ctx: Context, soon: Boolean = false) {
             val req = OneTimeWorkRequestBuilder<SyncWorker>()
-                .setInitialDelay(2, TimeUnit.MINUTES)
-                .setBackoffCriteria(BackoffPolicy.LINEAR, 2, TimeUnit.MINUTES)
+                .setInitialDelay(if (soon) 5L else 120L, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
                 .build()
             WorkManager.getInstance(ctx).enqueueUniqueWork("dolby-sync", ExistingWorkPolicy.REPLACE, req)
         }
