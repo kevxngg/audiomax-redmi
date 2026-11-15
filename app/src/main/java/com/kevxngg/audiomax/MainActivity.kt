@@ -22,6 +22,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
+
+private val liveBusy = AtomicBoolean(false)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,16 +54,27 @@ fun App(store: DolbyStore) {
     var endpoint by remember { mutableStateOf("speaker") }
     var screen by remember { mutableStateOf(Screen.MAIN) }
     var confirmReset by remember { mutableStateOf(false) }
+    val dirty = remember { mutableSetOf<String>() }
+    var live by remember { mutableStateOf(false) }
+    var firstLoad by remember { mutableStateOf(true) }
+    val userPresets = remember { UserPresets(ctx) }
+    var presets by remember { mutableStateOf(userPresets.all()) }
+    DisposableEffect(Unit) { onDispose { Live.release() } }
 
     fun reload() {
         scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching {
                     if (!Root.available()) error("Sin root: activa KernelSU/dfroot y concede root a AudioMax")
-                    store.load()
+                    val st = store.load()
+                    live = Live.available
+                    st
                 }
             }
-            r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null }
+            r.onSuccess {
+                state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null
+                if (firstLoad) { endpoint = Live.activeEndpoint(ctx); firstLoad = false }
+            }
                 .onFailure { errMsg = it.message }
         }
     }
@@ -72,8 +86,17 @@ fun App(store: DolbyStore) {
         pending = scope.launch {
             delay(700)
             val s = state ?: return@launch
+            val keys = dirty.toSet()
+            dirty.clear()
+            val ep = endpoint
             applying = true
-            val r = withContext(Dispatchers.IO) { runCatching { store.save(s.copy(activeProfile = profile)) } }
+            val r = withContext(Dispatchers.IO) {
+                runCatching {
+                    val st = s.copy(activeProfile = profile)
+                    val ok = live && Live.apply(ctx, st, profile, ep, keys)
+                    store.save(st, restart = !ok)
+                }
+            }
             applying = false
             if (r.getOrNull()?.out?.contains("OK") != true) {
                 snack.showSnackbar("No se pudo aplicar: ${r.exceptionOrNull()?.message ?: r.getOrNull()?.out}")
@@ -151,11 +174,13 @@ fun App(store: DolbyStore) {
             fun b(k: String) = pe[k] == "1"
             fun i(k: String) = pe[k]?.toIntOrNull() ?: 0
             fun setPe(vararg kv: Pair<String, String>) {
+                dirty.addAll(kv.map { it.first })
                 val st = state ?: return
                 val cur = st.pe[key] ?: return
                 state = st.copy(pe = st.pe + (key to (cur + kv)))
             }
             fun setTun(k: String, v: String) {
+                dirty.add("tuning")
                 val st = state ?: return
                 val cur = st.tuning[endpoint] ?: return
                 state = st.copy(tuning = st.tuning + (endpoint to (cur + (k to v))))
@@ -168,9 +193,22 @@ fun App(store: DolbyStore) {
             if (screen == Screen.EQ) {
                 if (gains != null) EqScreen(
                     gains = gains, freqs = s.geqFreqs, enabled = on && b("graphic_equalizer_enable"),
+                    live = live && endpoint == Live.activeEndpoint(ctx), user = presets,
                     onEnabled = { setPe("graphic_equalizer_enable" to bool(it)); commit() },
-                    onChange = { g -> state?.let { st -> state = st.copy(geq = st.geq + (profile to g)) } },
+                    onChange = { g ->
+                        dirty.add("geq")
+                        state?.let { st ->
+                            val ns = st.copy(geq = st.geq + (profile to g))
+                            state = ns
+                            // En vivo mientras arrastras (si una aplicación sigue en curso, se salta)
+                            if (live && liveBusy.compareAndSet(false, true)) scope.launch(Dispatchers.IO) {
+                                try { Live.apply(ctx, ns, profile, endpoint, setOf("geq")) } finally { liveBusy.set(false) }
+                            }
+                        }
+                    },
                     onDone = { commit() },
+                    onSavePreset = { n -> userPresets.save(n, gains); presets = userPresets.all() },
+                    onDeletePreset = { n -> userPresets.delete(n); presets = userPresets.all() },
                 )
                 Spacer(Modifier.height(24.dp))
                 return@Column
@@ -178,11 +216,17 @@ fun App(store: DolbyStore) {
 
             Column(Modifier.padding(horizontal = 16.dp)) {
                 MainSwitchBar("Usar Dolby Atmos", on) { v ->
-                    state = state?.copy(dolbyOn = v); commit()
+                    dirty.add("dolbyOn"); state = state?.copy(dolbyOn = v); commit()
                 }
+                Text(
+                    if (live) "● Cambios en vivo" else "Los cambios reinician el audio un instante",
+                    Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp),
+                    color = if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
 
                 PrefGroup {
-                    ListPref("Perfil", DolbyStore.PROFILES, profile, enabled = on) { profile = it; commit() }
+                    ListPref("Perfil", DolbyStore.PROFILES, profile, enabled = on) { dirty.add("profile"); profile = it; commit() }
                     PrefDivider()
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
                         Text(
@@ -286,6 +330,11 @@ fun App(store: DolbyStore) {
                         { setPe("volume_leveler_amount" to it.toString()) }, { commit() }
                     )
                     PrefDivider()
+                    SwitchPref(
+                        "Protección auditiva", "Limita el volumen alto sostenido en auriculares",
+                        b("hearing_protection_enable"), on
+                    ) { setPe("hearing_protection_enable" to bool(it)); commit() }
+                    PrefDivider()
                     SliderPref(
                         "Volumen máximo extra", i("volmax_boost"), 0, 144, 4, on, ::db,
                         { setPe("volmax_boost" to it.toString()) }, { commit() }
@@ -301,7 +350,10 @@ fun App(store: DolbyStore) {
                         checkUpdate(true)
                     }
                 }
-                FooterText("Los cambios se aplican solos. El audio se corta un instante mientras Dolby se reinicia.")
+FooterText(
+                    if (live) "Interruptores, perfil y ecualizador se aplican en vivo. Nivel y frecuencia de bajos, amplitud, intensidades, volumen extra y protección auditiva reinician el audio un instante."
+                    else "Los cambios se aplican solos. El audio se corta un instante mientras Dolby se reinicia."
+                )
                 Spacer(Modifier.height(24.dp))
             }
         }

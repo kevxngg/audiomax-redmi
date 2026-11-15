@@ -28,7 +28,7 @@ class DolbyStore(private val ctx: Context) {
             "virtualizer_enable", "surround_boost",
             "dialog_enhancer_enable", "dialog_enhancer_amount",
             "volume_leveler_enable", "volume_leveler_amount",
-            "volmax_boost",
+            "volmax_boost", "hearing_protection_enable",
         )
         val TUNING_KEYS = listOf("bass_enhancer_boost", "bass_enhancer_cutoff_frequency")
     }
@@ -120,7 +120,7 @@ class DolbyStore(private val ctx: Context) {
     ).use { if (it.moveToFirst()) it.getString(0) else null }
 
     /** Guarda en la copia (filas 'default' y 'custom') y la instala. */
-    fun save(s: State): Root.Result {
+    fun save(s: State, restart: Boolean = true): Root.Result {
         open().use { db ->
             db.beginTransaction()
             try {
@@ -145,7 +145,7 @@ class DolbyStore(private val ctx: Context) {
                 db.endTransaction()
             }
         }
-        return install(work)
+        return install(work, restart)
     }
 
     fun restoreOriginal(): Root.Result {
@@ -153,9 +153,17 @@ class DolbyStore(private val ctx: Context) {
         return install(backup)
     }
 
-    private fun install(f: File): Root.Result {
+    private fun install(f: File, restart: Boolean = true): Root.Result {
         File(f.path + "-journal").delete()
         if (!Root.writeFile(f, "$DB.new")) return Root.Result(1, "No se pudo copiar la base de datos")
+        // Sin reinicio: ya se aplicó en vivo, solo se guarda para que dure tras reiniciar el teléfono
+        if (!restart) return Root.run(
+            "mv -f $DB.new $DB",
+            "chown media:audio $DB",
+            "chmod 600 $DB",
+            "chcon u:object_r:vendor_data_file:s0 $DB",
+            "echo OK",
+        )
         return Root.run(
             "setprop ctl.stop dms-hal",
             "sleep 1",

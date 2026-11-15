@@ -1,6 +1,12 @@
 ## Novedades
-- Nuevo diseño al estilo del Dolby Atmos de las ROMs AOSP: interruptor principal grande, ajustes agrupados y colores Material You del fondo de pantalla (claro y oscuro).
-- Ecualizador en su propia pantalla, con curva que se ajusta arrastrando los puntos y presets: Plano, Rico, Profundo, En V, Vocal y Brillante.
-- Los cambios se aplican solos al soltar el control; ya no hay botón "Aplicar".
-- Ecualizador inteligente, realce de diálogos y nivelador como listas e interruptores, con su intensidad.
-- "Restablecer valores" pide confirmación antes de deshacer los cambios.
+- Cambios en vivo: encender o apagar Dolby, el perfil, los interruptores (bajos, envolvente, nivelador, diálogos), el ecualizador inteligente y el ecualizador se aplican al momento, sin cortar la música.
+- El ecualizador suena mientras arrastras los puntos de la curva.
+- Presets propios: guarda tu curva con un nombre y bórrala con la X.
+- Nuevos presets: Electrónica, Rock, Pop, Clásica y Podcast.
+- Tono rápido: graves, medios y agudos que se suman a la curva.
+- Protección auditiva de Dolby.
+- Botón "Dolby Atmos" en los ajustes rápidos para encenderlo o apagarlo.
+- Al abrir la app se elige sola la salida que estás usando (altavoz o auriculares).
+
+## Nota
+- El nivel y la frecuencia de los bajos, la amplitud, las intensidades, el volumen extra y la protección auditiva siguen necesitando un reinicio breve del audio.
