@@ -21,7 +21,10 @@ object Live {
     )
 
     /** No se pueden en vivo: se guardan y se aplican solos cuando no suena música. */
-    val DEFERRED = setOf("tuning", "volmax_boost", "surround_boost", "hearing_protection_enable")
+    val DEFERRED = setOf(
+        "tuning", "prof", "volmax_boost", "surround_boost", "hearing_protection_enable",
+        "dialog_enhancer_ducking", "headphone_virtualizer_steerer_source_distance",
+    )
 
     private val PROFILE_KEYS = KEYS - setOf("dolbyOn", "profile")
 

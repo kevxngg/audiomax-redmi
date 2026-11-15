@@ -82,12 +82,13 @@ fun EqScreen(
     gains: List<Int>, freqs: List<Int>, enabled: Boolean, live: Boolean,
     user: List<Pair<String, List<Int>>>,
     onEnabled: (Boolean) -> Unit, onChange: (List<Int>) -> Unit, onDone: () -> Unit,
-    onSavePreset: (String) -> Unit, onDeletePreset: (String) -> Unit,
+    onSavePreset: (String, List<Int>) -> Unit, onDeletePreset: (String) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     var selected by remember { mutableIntStateOf(-1) }
     val current = rememberUpdatedState(gains)
     var saveDialog by remember { mutableStateOf(false) }
+    var autoEq by remember { mutableStateOf(false) }
     val tone = remember { mutableStateMapOf("Graves" to 0, "Medios" to 0, "Agudos" to 0) }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -204,7 +205,8 @@ fun EqScreen(
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(enabled = enabled, onClick = { saveDialog = true }) { Text("Guardar como preset") }
+            TextButton(enabled = enabled, onClick = { autoEq = true }) { Text("AutoEQ") }
+            TextButton(enabled = enabled, onClick = { saveDialog = true }) { Text("Guardar") }
             TextButton(enabled = enabled && gains.any { abs(it) > 0 }, onClick = {
                 tone.keys.toList().forEach { tone[it] = 0 }
                 onChange(List(gains.size) { 0 }); onDone()
@@ -231,6 +233,12 @@ fun EqScreen(
         FooterText("El tono rápido se suma a la curva. El ecualizador es común a todas las salidas del perfil activo.")
     }
 
+    if (autoEq) AutoEqDialog(freqs, onApply = { g, name ->
+        autoEq = false
+        onChange(g); onDone()
+        onSavePreset("AutoEQ $name".take(24), g)
+    }, onDismiss = { autoEq = false })
+
     if (saveDialog) {
         var text by remember { mutableStateOf("") }
         AlertDialog(
@@ -240,7 +248,7 @@ fun EqScreen(
                 OutlinedTextField(text, { text = it.take(24) }, singleLine = true, label = { Text("Nombre") })
             },
             confirmButton = {
-                TextButton(enabled = text.isNotBlank(), onClick = { onSavePreset(text.trim()); saveDialog = false }) {
+                TextButton(enabled = text.isNotBlank(), onClick = { onSavePreset(text.trim(), current.value); saveDialog = false }) {
                     Text("Guardar")
                 }
             },

@@ -1,13 +1,10 @@
 ## Novedades
-- Ahora se llama Dolby Atmos, con icono nuevo.
-- Todo se aplica solo, sin botón "Aplicar" y sin cortar la música.
-- En vivo y al instante: interruptores, perfil, ecualizador, ecualizador inteligente y su intensidad, intensidad de diálogos, intensidad del nivelador y bajo virtual.
-- Graves en vivo: "Nivel de bajos" y "Tipo de graves" (Profundo, Contundente, Cálido) suenan al momento mientras mueves el control.
-- Ganancia extra en vivo.
-- Los ajustes de cada opción aparecen justo debajo de ella cuando la activas.
-- Lo que Dolby no deja cambiar en vivo (refuerzo interno de graves, amplitud, volumen máximo y protección auditiva) se guarda y se aplica solo cuando pausas la música.
-- La app sigue a la salida que estás usando: al conectar auriculares cambia de pestaña y vuelve a aplicar tus ajustes.
-- Si el audio se reinicia por otra causa, el control en vivo se recupera solo.
+- AutoEQ: busca el modelo de tus auriculares (más de 8800) y aplica su curva de corrección al ecualizador. Se guarda como preset.
+- Perfiles ocultos de Dolby: Movilidad, En movimiento, Trayecto y Viaje.
+- Funciones inteligentes de Dolby: virtualizador adaptativo, nivelador inteligente, ecualizador adaptativo, compresor envolvente y modelador de volumen.
+- Supresión de reverberación: quita el eco de sala en voces y vídeos.
+- Atenuar el fondo al hablar, dentro del realce de diálogos.
+- Para auriculares: modo del virtualizador (Estándar o Inmersivo), ángulo de los altavoces virtuales y distancia del sonido.
 
 ## Nota
-- Cambia el nombre interno de la app (com.dolbyatmos.obsidian). Las actualizaciones siguen llegando igual.
+- Las funciones nuevas (salvo AutoEQ y los perfiles, que van en vivo) se aplican solas cuando pausas la música.

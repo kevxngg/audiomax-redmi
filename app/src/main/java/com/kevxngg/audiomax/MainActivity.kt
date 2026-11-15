@@ -76,7 +76,7 @@ fun App(store: DolbyStore) {
                     st
                 }
             }
-            r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null }
+            r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 7); errMsg = null }
                 .onFailure { errMsg = it.message }
         }
     }
@@ -227,6 +227,17 @@ fun App(store: DolbyStore) {
                 if (kv.any { it.first in Live.DEFERRED }) deferredPending = true
                 if (now) done()
             }
+            val pr = s.prof[profile] ?: emptyMap()
+            fun pb(k: String) = pr[k] == "1"
+            fun pi(k: String) = pr[k]?.toIntOrNull() ?: 0
+            /** Ajustes del perfil (tabla profiles): se aplican al pausar la música. */
+            fun setProf(k: String, v: String, now: Boolean = true) {
+                val st = state ?: return
+                val cur = st.prof[profile] ?: return
+                state = st.copy(prof = st.prof + (profile to (cur + (k to v))))
+                deferredPending = true
+                if (now) deferred()
+            }
             fun setTun(k: String, v: String) {
                 val st = state ?: return
                 val cur = st.tuning[endpoint] ?: return
@@ -258,7 +269,7 @@ fun App(store: DolbyStore) {
                     onEnabled = { change("graphic_equalizer_enable" to bool(it)) },
                     onChange = { g -> setGeq(g) },
                     onDone = { done() },
-                    onSavePreset = { n -> userPresets.save(n, gains); presets = userPresets.all() },
+                    onSavePreset = { n, g -> userPresets.save(n, g); presets = userPresets.all() },
                     onDeletePreset = { n -> userPresets.delete(n); presets = userPresets.all() },
                 )
                 Spacer(Modifier.height(24.dp))
@@ -379,15 +390,44 @@ fun App(store: DolbyStore) {
                             "Amplitud", i("surround_boost"), 0, 96, 4, on, ::db,
                             { change("surround_boost" to it.toString(), now = false) }, { deferred() }
                         )
-                        FooterText("La amplitud se aplica cuando pausas la música.")
+                        if (endpoint == "headphone") {
+                            ListPref(
+                                "Modo del virtualizador", listOf(1 to "Estándar", 2 to "Inmersivo"),
+                                pi("headphone_virtualizer_mode").coerceIn(1, 2), enabled = on
+                            ) { setProf("headphone_virtualizer_mode", it.toString()) }
+                            SliderPref(
+                                "Ángulo de los altavoces virtuales", pi("advanced_headphone_virtualizer_lr_angle"),
+                                10, 90, 5, on, { "$it°" },
+                                { setProf("advanced_headphone_virtualizer_lr_angle", it.toString(), now = false) }, { deferred() }
+                            )
+                            SliderPref(
+                                "Distancia del sonido", i("headphone_virtualizer_steerer_source_distance"), 1, 48, 1, on, { "$it" },
+                                { change("headphone_virtualizer_steerer_source_distance" to it.toString(), now = false) }, { deferred() }
+                            )
+                        }
+                        FooterText("La amplitud y los ajustes del virtualizador se aplican cuando pausas la música.")
                     }
                     PrefDivider()
                     SwitchPref("Realce de diálogos", "Voces más claras en vídeos y películas", b("dialog_enhancer_enable"), on) {
                         change("dialog_enhancer_enable" to bool(it))
                     }
-                    if (b("dialog_enhancer_enable")) SliderPref(
-                        "Intensidad", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
-                        { change("dialog_enhancer_amount" to it.toString(), now = false) }, { done() }
+                    if (b("dialog_enhancer_enable")) {
+                        SliderPref(
+                            "Intensidad", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
+                            { change("dialog_enhancer_amount" to it.toString(), now = false) }, { done() }
+                        )
+                        SliderPref(
+                            "Atenuar el fondo al hablar", i("dialog_enhancer_ducking"), 0, 16, 1, on, { "$it" },
+                            { change("dialog_enhancer_ducking" to it.toString(), now = false) }, { deferred() }
+                        )
+                    }
+                    PrefDivider()
+                    SwitchPref(
+                        "Supresión de reverberación", "Quita eco de salas en voces y vídeos", pb("reverb_suppression_enable"), on
+                    ) { setProf("reverb_suppression_enable", bool(it)) }
+                    if (pb("reverb_suppression_enable")) SliderPref(
+                        "Intensidad", pi("reverb_suppression_amount"), 0, 16, 1, on, { "$it" },
+                        { setProf("reverb_suppression_amount", it.toString(), now = false) }, { deferred() }
                     )
                 }
 
@@ -421,6 +461,34 @@ fun App(store: DolbyStore) {
                         deferred()
                     }
                     FooterText("La ganancia extra suena al momento. El volumen máximo de Dolby y la protección auditiva se aplican cuando pausas la música.")
+                }
+
+                PrefGroup("Inteligente") {
+                    SwitchPref(
+                        "Virtualizador adaptativo", "Ajusta el sonido envolvente según el contenido",
+                        pb("mi_adaptive_virtualizer_steering_enable"), on
+                    ) { setProf("mi_adaptive_virtualizer_steering_enable", bool(it)) }
+                    PrefDivider()
+                    SwitchPref(
+                        "Nivelador inteligente", "Ajusta el nivelador según lo que suena",
+                        pb("mi_dv_leveler_steering_enable"), on
+                    ) { setProf("mi_dv_leveler_steering_enable", bool(it)) }
+                    PrefDivider()
+                    SwitchPref(
+                        "Ecualizador adaptativo", "Ajusta el ecualizador inteligente al contenido",
+                        pb("mi_ieq_steering_enable"), on
+                    ) { setProf("mi_ieq_steering_enable", bool(it)) }
+                    PrefDivider()
+                    SwitchPref(
+                        "Compresor envolvente", "Controla los picos del sonido envolvente",
+                        pb("mi_surround_compressor_steering_enable"), on
+                    ) { setProf("mi_surround_compressor_steering_enable", bool(it)) }
+                    PrefDivider()
+                    SwitchPref(
+                        "Modelador de volumen", "Mantiene el equilibrio tonal a volumen bajo",
+                        pb("volume_modeler_enable"), on
+                    ) { setProf("volume_modeler_enable", bool(it)) }
+                    FooterText("Funciones inteligentes de Dolby (las usa el perfil Dinámico). Se aplican cuando pausas la música.")
                 }
 
                 PrefGroup("General") {

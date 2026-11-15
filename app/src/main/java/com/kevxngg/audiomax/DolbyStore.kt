@@ -16,7 +16,10 @@ class DolbyStore(private val ctx: Context) {
     companion object {
         const val DB = "/data/vendor/dolby/dax_sqlite3.db"
 
-        val PROFILES = listOf(0 to "Dinámico", 1 to "Película", 2 to "Música", 3 to "Voz")
+        val PROFILES = listOf(
+            0 to "Dinámico", 1 to "Película", 2 to "Música", 3 to "Voz",
+            4 to "Movilidad", 5 to "En movimiento", 6 to "Trayecto", 7 to "Viaje",
+        )
         val ENDPOINTS = listOf("speaker" to "Altavoz", "headphone" to "Auriculares · BT · USB")
         val IEQ_PRESETS = listOf(1 to "Detallado", 2 to "Equilibrado", 3 to "Cálido")
 
@@ -29,6 +32,15 @@ class DolbyStore(private val ctx: Context) {
             "dialog_enhancer_enable", "dialog_enhancer_amount",
             "volume_leveler_enable", "volume_leveler_amount",
             "volmax_boost", "hearing_protection_enable",
+            "dialog_enhancer_ducking", "headphone_virtualizer_steerer_source_distance",
+        )
+
+        /** Columnas de la tabla profiles (por perfil, comunes a todas las salidas). */
+        val PROF_KEYS = listOf(
+            "headphone_virtualizer_mode", "advanced_headphone_virtualizer_lr_angle",
+            "reverb_suppression_enable", "reverb_suppression_amount", "volume_modeler_enable",
+            "mi_adaptive_virtualizer_steering_enable", "mi_dv_leveler_steering_enable",
+            "mi_ieq_steering_enable", "mi_surround_compressor_steering_enable",
         )
         val TUNING_KEYS = listOf("bass_enhancer_boost", "bass_enhancer_cutoff_frequency")
     }
@@ -43,6 +55,8 @@ class DolbyStore(private val ctx: Context) {
         /** perfil -> ganancias del ecualizador gráfico */
         val geq: Map<Int, List<Int>>,
         val geqFreqs: List<Int>,
+        /** perfil -> columnas de la tabla profiles */
+        val prof: Map<Int, Map<String, String>> = emptyMap(),
     )
 
     private val work = File(ctx.cacheDir, "dax.db")
@@ -106,10 +120,20 @@ class DolbyStore(private val ctx: Context) {
                 }
             }
 
+            val prof = mutableMapOf<Int, Map<String, String>>()
+            for ((p, _) in PROFILES) {
+                db.rawQuery(
+                    "select ${PROF_KEYS.joinToString()} from profiles where profile_id=? and custom_name='custom'",
+                    arrayOf(p.toString())
+                ).use { c ->
+                    if (c.moveToFirst()) prof[p] = PROF_KEYS.mapIndexed { i, k -> k to (c.getString(i) ?: "0") }.toMap()
+                }
+            }
+
             return State(
                 dolbyOn = cfg("State") == "true",
                 activeProfile = cfg("Profile")?.toIntOrNull() ?: 0,
-                pe = pe, tuning = tuning, geq = geq, geqFreqs = freqs,
+                pe = pe, tuning = tuning, geq = geq, geqFreqs = freqs, prof = prof,
             )
         }
     }
@@ -134,6 +158,10 @@ class DolbyStore(private val ctx: Context) {
                 for ((e, cols) in s.tuning) {
                     val cv = ContentValues().apply { cols.forEach { (k, v) -> put(k, v) } }
                     db.update("tunings", cv, "endpoint=?", arrayOf(e))
+                }
+                for ((p, cols) in s.prof) {
+                    val cv = ContentValues().apply { cols.forEach { (k, v) -> put(k, v) } }
+                    db.update("profiles", cv, "profile_id=?", arrayOf(p.toString()))
                 }
                 for ((p, gains) in s.geq) {
                     val preset = geqPreset(db, p) ?: continue
