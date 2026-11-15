@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Comunes -->
+    <string name="app_name">Dolby Atmos</string>
+    <string name="cancel">Cancelar</string>
+    <string name="close">Cerrar</string>
+    <string name="save">Guardar</string>
+    <string name="reset">Restablecer</string>
+    <string name="retry">Reintentar</string>
+    <string name="back">Atrás</string>
+    <string name="on">Activado</string>
+    <string name="off">Desactivado</string>
+    <string name="intensity">Intensidad</string>
+
+    <!-- Pantalla principal -->
+    <string name="err_no_root">Sin root: activa KernelSU/dfroot y concede root a la app</string>
+    <string name="err_read_db">No se pudo leer la base de datos de Dolby</string>
+    <string name="apply_failed">No se pudo aplicar</string>
+    <string name="update_check_failed">No se pudo consultar GitHub</string>
+    <string name="update_latest">Tienes la última versión</string>
+    <string name="title_eq">Ecualizador</string>
+    <string name="title_about">Acerca de</string>
+    <string name="use_dolby">Usar Dolby Atmos</string>
+    <string name="live_on">● Cambios en vivo, sin cortar la música</string>
+    <string name="live_off">Sin control en vivo: los cambios se aplican al reiniciar el audio</string>
+    <string name="profile">Perfil</string>
+    <string name="settings_for">Ajustes para</string>
+    <string name="endpoint_speaker">Altavoz</string>
+    <string name="endpoint_headphone">Auriculares</string>
+    <string name="endpoint_headphone_long">Auriculares · BT · USB</string>
+    <string name="endpoint_active_mark">%1$s ●</string>
+    <string name="endpoint_not_playing">No está sonando por aquí: se guarda y se aplica cuando la uses</string>
+    <string name="endpoint_in_use_headphone">En uso · incluye cable, Bluetooth y USB-C</string>
+    <string name="endpoint_in_use">En uso</string>
+    <string name="group_sound">Sonido</string>
+    <string name="eq_unavailable">No disponible en este perfil</string>
+    <string name="ieq">Ecualizador inteligente</string>
+    <string name="group_bass">Graves</string>
+    <string name="bass_enhancer">Realce de bajos</string>
+    <string name="bass_enhancer_summary">Graves más potentes sin saturar</string>
+    <string name="bass_level">Nivel de bajos</string>
+    <string name="bass_type">Tipo de graves</string>
+    <string name="dolby_bass_boost">Refuerzo interno de Dolby</string>
+    <string name="bass_footer">El nivel y el tipo de graves suenan al momento. El refuerzo interno de Dolby se aplica solo cuando pausas la música.</string>
+    <string name="group_space_voice">Espacio y voz</string>
+    <string name="surround">Sonido envolvente</string>
+    <string name="surround_summary">Escena más amplia y envolvente</string>
+    <string name="virtualizer_mode">Modo del virtualizador</string>
+    <string name="virtualizer_standard">Estándar</string>
+    <string name="virtualizer_immersive">Inmersivo</string>
+    <string name="virtualizer_footer">El modo del virtualizador se aplica cuando pausas la música.</string>
+    <string name="dialogue">Realce de diálogos</string>
+    <string name="dialogue_summary">Voces más claras en vídeos y películas</string>
+    <string name="reverb">Supresión de reverberación</string>
+    <string name="reverb_summary">Quita algo de eco de sala en voces (efecto leve)</string>
+    <string name="group_volume">Volumen</string>
+    <string name="leveler">Nivelador de volumen</string>
+    <string name="leveler_summary">Volumen parejo entre canciones y apps</string>
+    <string name="extra_gain">Ganancia extra</string>
+    <string name="extra_gain_footer">La ganancia extra suena al momento.</string>
+    <string name="group_intelligent">Inteligente</string>
+    <string name="adaptive_virtualizer">Virtualizador adaptativo</string>
+    <string name="adaptive_virtualizer_summary">Ajusta el sonido envolvente según el contenido</string>
+    <string name="adaptive_eq">Ecualizador adaptativo</string>
+    <string name="adaptive_eq_summary">Ajusta el ecualizador inteligente al contenido</string>
+    <string name="intelligent_footer">Se aplican cuando pausas la música.</string>
+    <string name="group_general">General</string>
+    <string name="reset_values">Restablecer valores</string>
+    <string name="reset_values_summary">Vuelve a como estaba la primera vez que abriste la app</string>
+    <string name="updates">Actualizaciones</string>
+    <string name="updates_summary">Versión %1$s · Buscar ahora</string>
+    <string name="about_summary">Créditos y código fuente</string>
+    <string name="reset_confirm_title">¿Restablecer valores?</string>
+    <string name="reset_confirm_text">Dolby vuelve a la configuración que tenía la primera vez que abriste la app. La música se corta un instante.</string>
+    <string name="reset_done">Valores restablecidos</string>
+    <string name="reset_failed">No se pudo restablecer</string>
+
+    <!-- Perfiles de Dolby -->
+    <string name="profile_dynamic">Dinámico</string>
+    <string name="profile_movie">Película</string>
+    <string name="profile_music">Música</string>
+    <string name="profile_voice">Voz</string>
+    <string name="profile_mobility">Movilidad</string>
+    <string name="profile_on_the_go">En movimiento</string>
+    <string name="profile_commute">Trayecto</string>
+    <string name="profile_travel">Viaje</string>
+
+    <!-- Presets del ecualizador inteligente -->
+    <string name="ieq_detailed">Detallado</string>
+    <string name="ieq_balanced">Equilibrado</string>
+    <string name="ieq_warm">Cálido</string>
+
+    <!-- Tipos de graves -->
+    <string name="curve_deep">Profundo</string>
+    <string name="curve_punchy">Contundente</string>
+    <string name="curve_warm">Cálido</string>
+
+    <!-- Ecualizador -->
+    <string name="use_eq">Usar ecualizador</string>
+    <string name="eq_presets">Presets</string>
+    <string name="eq_flat">Plano</string>
+    <string name="eq_rich">Rico</string>
+    <string name="eq_deep">Profundo</string>
+    <string name="eq_v_shape">En V</string>
+    <string name="eq_vocal">Vocal</string>
+    <string name="eq_bright">Brillante</string>
+    <string name="eq_electronic">Electrónica</string>
+    <string name="eq_rock">Rock</string>
+    <string name="eq_pop">Pop</string>
+    <string name="eq_classical">Clásica</string>
+    <string name="eq_podcast">Podcast</string>
+    <string name="eq_custom">Personalizado</string>
+    <string name="eq_delete_preset">Borrar %1$s</string>
+    <string name="eq_hint_live">Arrastra los puntos: se oye al momento</string>
+    <string name="eq_hint">Arrastra los puntos para ajustar</string>
+    <string name="group_quick_tone">Tono rápido</string>
+    <string name="tone_bass">Graves</string>
+    <string name="tone_mid">Medios</string>
+    <string name="tone_treble">Agudos</string>
+    <string name="eq_footer">El tono rápido se suma a la curva. El ecualizador es común a todas las salidas del perfil activo.</string>
+    <string name="eq_save_title">Guardar preset</string>
+    <string name="eq_name">Nombre</string>
+
+    <!-- AutoEQ -->
+    <string name="autoeq">AutoEQ</string>
+    <string name="autoeq_desc">Corrige la respuesta de tus auriculares con las mediciones del proyecto AutoEq.</string>
+    <string name="autoeq_model_hint">Modelo (ej. Galaxy Buds, AirPods)</string>
+    <string name="autoeq_no_results">Sin resultados</string>
+    <string name="autoeq_list_failed">No se pudo descargar la lista: %1$s</string>
+    <string name="autoeq_curve_failed">No se pudo cargar la curva: %1$s</string>
+    <string name="autoeq_empty_curve">Curva vacía</string>
+
+    <!-- Acerca de -->
+    <string name="about_title">Dolby Atmos · Obsidian</string>
+    <string name="about_version">Versión %1$s · Redmi Note 14 Pro 4G</string>
+    <string name="about_desc">Controla el Dolby Atmos que ya trae el teléfono: no instala otro efecto. Necesita root.</string>
+    <string name="about_code">Código</string>
+    <string name="about_source">Código fuente y versiones</string>
+    <string name="about_credits">Créditos</string>
+    <string name="about_pa">Paranoid Android y Lunaris AOSP</string>
+    <string name="about_pa_summary">Control del efecto Dolby · Apache-2.0</string>
+    <string name="about_autoeq">AutoEq</string>
+    <string name="about_autoeq_summary">Curvas de corrección de auriculares · Jaakko Pasanen</string>
+    <string name="about_trademark">Dolby, Dolby Atmos y el símbolo de la doble D son marcas de Dolby Laboratories. Esta app no está afiliada a Dolby.</string>
+
+    <!-- Botón de ajustes rápidos -->
+    <string name="tile_no_root">Sin root</string>
+
+    <!-- Actualizaciones -->
+    <string name="update_downloading">Descargando…</string>
+    <string name="update_installing">Instalando… la app se cerrará y volverá a abrirse.</string>
+    <string name="update_install_failed">No se pudo instalar automáticamente. Puedes descargarla desde el navegador.</string>
+    <string name="update_not_completed">La instalación no se completó. Reintenta o descarga desde el navegador.</string>
+    <string name="update_required">Actualización obligatoria</string>
+    <string name="update_available_title">Hay una nueva versión</string>
+    <string name="update_available_text">Versión %1$s disponible (tienes la %2$s)</string>
+    <string name="update_now">Actualizar ahora</string>
+    <string name="update_browser">Navegador</string>
+    <string name="update_skip">Omitir</string>
+    <string name="update_later">Más tarde</string>
+    <string name="notif_downloading">Descargando actualización…</string>
+    <string name="notif_failed_text">No se pudo instalar automáticamente. Toca para descargarla.</string>
+    <string name="notif_new_version_title">Hay una nueva versión de Dolby Atmos</string>
+    <string name="notif_version_available">Versión %1$s disponible</string>
+</resources>

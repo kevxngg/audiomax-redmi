@@ -4,7 +4,7 @@ import android.graphics.drawable.Icon
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/** Botón de ajustes rápidos: enciende o apaga Dolby al momento. */
+/** Quick Settings tile: turns Dolby on or off instantly. */
 class DolbyTile : TileService() {
 
     override fun onStartListening() {
@@ -24,7 +24,7 @@ class DolbyTile : TileService() {
             val target = !now
             runCatching { fx.dsOn = target }
             update(target)
-            // Guarda el estado para que dure tras reiniciar (sin cortar el audio)
+            // Save the state so it survives a reboot (without cutting the audio)
             runCatching {
                 val store = DolbyStore(applicationContext)
                 val s = store.load()
@@ -40,8 +40,10 @@ class DolbyTile : TileService() {
             false -> Tile.STATE_INACTIVE
             null -> Tile.STATE_UNAVAILABLE
         }
-        t.label = "Dolby Atmos"
-        t.subtitle = when (on) { true -> "Activado"; false -> "Desactivado"; null -> "Sin root" }
+        t.label = getString(R.string.app_name)
+        t.subtitle = getString(
+            when (on) { true -> R.string.on; false -> R.string.off; null -> R.string.tile_no_root }
+        )
         t.icon = Icon.createWithResource(this, R.drawable.ic_stat)
         t.updateTile()
     }

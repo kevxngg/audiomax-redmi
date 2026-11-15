@@ -15,5 +15,5 @@ def dbset(pe_hp={},pe_sp={},prof={},tun_hp={}):
     c.execute("update geq_presets set geq_gain=? where profile_id='2'",(','.join(['0']*20),))
     for k,v in tun_hp.items(): c.execute(f"update tunings set {k}=? where endpoint='headphone'",(str(v),))
     c.commit(); c.close(); install('t.db')
-def low(r,q=0.2):  # nivel de las tramas más bajas (huecos / colas)
+def low(r,q=0.2):  # level of the quietest frames (gaps / tails)
     s=np.sort(r['rms']); return 20*np.log10(np.mean(s[:max(1,int(len(s)*q))])+1e-9)

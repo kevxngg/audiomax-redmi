@@ -1,13 +1,13 @@
-# Auditoría del sonido
+# Sound audit
 
-Mide en el teléfono si cada ajuste de Dolby cambia de verdad el sonido.
+Measures on the phone whether each Dolby setting really changes the sound.
 
-1. Instala la compilación `measure` (rama `pruebas`, artefacto `DolbyAtmos-measure`) y da permiso:
+1. Install the `measure` build (branch `pruebas`, artifact `DolbyAtmos-measure`) and grant the permission:
    `adb shell pm grant com.dolbyatmos.obsidian android.permission.RECORD_AUDIO`
-2. `python gen.py` genera las señales en `sig/`; súbelas con `adb push` a
+2. `python gen.py` creates the test signals in `sig/`; push them with `adb push` to
    `/sdcard/Android/data/com.dolbyatmos.obsidian/files/`.
-3. Haz una copia de la base de datos de Dolby en `dax_now.db` (se usa para restaurar):
+3. Back up the Dolby database to `dax_now.db` (used to restore it afterwards):
    `adb exec-out su -c 'cat /data/vendor/dolby/dax_sqlite3.db' > dax_now.db`
-4. Ejecuta las pruebas `t1.py` … `t7.py`. No puede sonar nada más en el teléfono mientras tanto.
+4. Run the tests `t1.py` … `t7.py`. Nothing else may play on the phone meanwhile.
 
-La captura (Visualizer en la sesión 0) va después de Dolby y antes del volumen, a 48 kHz y en mono.
+The capture (a Visualizer on session 0) sits after Dolby and before the volume, at 48 kHz, mono.

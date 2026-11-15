@@ -6,13 +6,13 @@ import android.media.AudioManager
 import android.util.Log
 
 /**
- * Cambios en vivo sobre el efecto Dolby (sin reiniciar el audio).
- * Probado en el Redmi Note 14 Pro 4G: la app obtiene el control del DAP en la sesión global.
+ * Live changes on the Dolby effect (without restarting the audio).
+ * Tested on the Redmi Note 14 Pro 4G: the app gets control of the DAP on the global session.
  */
 object Live {
     private const val TAG = "AudioMaxLive"
 
-    /** Columnas que se aplican en vivo. El resto necesita reiniciar Dolby (sección Avanzado). */
+    /** Columns applied live. The rest need a Dolby restart (Advanced section). */
     val KEYS = setOf(
         "dolbyOn", "profile", "geq", "graphic_equalizer_enable",
         "bass_enhancer_enable", "virtualizer_enable", "volume_leveler_enable",
@@ -20,7 +20,7 @@ object Live {
         "ieq_amount", "dialog_enhancer_amount", "volume_leveler_amount", "virtual_bass_enable",
     )
 
-    /** No se pueden en vivo: se guardan y se aplican solos cuando no suena música. */
+    /** Cannot be applied live: saved and applied automatically when no music is playing. */
     val DEFERRED = setOf(
         "tuning", "prof", "volmax_boost", "surround_boost", "hearing_protection_enable",
         "dialog_enhancer_ducking", "headphone_virtualizer_steerer_source_distance",
@@ -30,7 +30,7 @@ object Live {
 
     private var fx: DolbyEffect? = null
 
-    /** Devuelve un efecto vivo; si el audio se reinició, lo vuelve a abrir. */
+    /** Returns a live effect; if the audio was restarted, it reopens it. */
     @Synchronized
     fun effect(): DolbyEffect? {
         fx?.let { f ->
@@ -49,7 +49,7 @@ object Live {
         fx = null
     }
 
-    /** Salida por la que suena la música ahora: "headphone" (cable, BT, USB) o "speaker". */
+    /** Output the music is currently playing through: "headphone" (wired, BT, USB) or "speaker". */
     fun activeEndpoint(ctx: Context): String {
         val am = ctx.getSystemService(AudioManager::class.java) ?: return "speaker"
         val hp = setOf(
@@ -60,7 +60,7 @@ object Live {
         return if (am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in hp }) "headphone" else "speaker"
     }
 
-    /** Aplica en vivo las claves cambiadas (reintenta una vez reabriendo el efecto). */
+    /** Applies the changed keys live (retries once by reopening the effect). */
     @Synchronized
     fun apply(s: DolbyStore.State, profile: Int, endpoint: String, keys: Set<String>): Boolean {
         val k = keys.filter { it in KEYS }.toSet()
@@ -78,7 +78,7 @@ object Live {
         return false
     }
 
-    /** Vuelve a mandar todo (al cambiar de salida, Dolby recarga sus valores antiguos). */
+    /** Re-sends everything (when the output changes, Dolby reloads its old values). */
     fun applyAll(s: DolbyStore.State, profile: Int, endpoint: String) =
         apply(s, profile, endpoint, setOf("dolbyOn") + PROFILE_KEYS)
 

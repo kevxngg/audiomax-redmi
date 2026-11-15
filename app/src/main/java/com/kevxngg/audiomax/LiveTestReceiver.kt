@@ -6,9 +6,9 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * Diagnóstico del control en vivo (solo se puede lanzar con root):
+ * Live-control diagnostics (can only be launched with root):
  *   su -c am broadcast -n com.kevxngg.audiomax/.LiveTestReceiver [--ei prio 100] [--ez write true]
- * Escribe el resultado en logcat con la etiqueta AudioMaxTest.
+ * Writes the result to logcat with the AudioMaxTest tag.
  */
 class LiveTestReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
@@ -38,7 +38,7 @@ class LiveTestReceiver : BroadcastReceiver() {
                             log("ID $id = ${v.take(maxOf(n, 1)).joinToString(",")}")
                         }
                     }
-                    log("probe fin")
+                    log("probe end")
                 }
                 val setId = intent.getIntExtra("setid", -1)
                 if (setId >= 0) {
@@ -47,7 +47,7 @@ class LiveTestReceiver : BroadcastReceiver() {
                     log("SET $setId -> ${r.getOrElse { "ERR ${it.message}" }}")
                 }
                 if (write) {
-                    // Escribe el mismo valor que ya tiene (no cambia el sonido) para ver si se acepta
+                    // Write the value it already has (does not change the sound) to see if it is accepted
                     val r = runCatching {
                         val cur = fx.get(DolbyEffect.Param.BASS_ENHANCER_ENABLE, profile)[0]
                         fx.set(DolbyEffect.Param.BASS_ENHANCER_ENABLE, cur, profile)

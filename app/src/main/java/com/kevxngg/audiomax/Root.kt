@@ -2,7 +2,7 @@ package com.kevxngg.audiomax
 
 import java.io.File
 
-/** Ejecuta comandos con su (KernelSU). */
+/** Runs commands with su (KernelSU). */
 object Root {
     data class Result(val code: Int, val out: String)
 
@@ -22,14 +22,14 @@ object Root {
         false
     }
 
-    /** Copia un archivo de root a un archivo propio de la app (por stdout, sin problemas de SELinux). */
+    /** Copies a root-owned file to an app-owned file (via stdout, avoiding SELinux issues). */
     fun readFile(src: String, dst: File): Boolean {
         val p = ProcessBuilder("su", "-c", "cat '$src'").start()
         dst.outputStream().use { o -> p.inputStream.use { it.copyTo(o) } }
         return p.waitFor() == 0 && dst.length() > 0
     }
 
-    /** Escribe un archivo de la app en una ruta de root (por stdin). */
+    /** Writes an app file to a root-owned path (via stdin). */
     fun writeFile(src: File, dst: String): Boolean {
         val p = ProcessBuilder("su", "-c", "cat > '$dst'").start()
         p.outputStream.use { o -> src.inputStream().use { it.copyTo(o) } }

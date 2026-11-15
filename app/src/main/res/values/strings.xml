@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="app_name">Dolby Atmos</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="save">Save</string>
+    <string name="reset">Reset</string>
+    <string name="retry">Retry</string>
+    <string name="back">Back</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="intensity">Intensity</string>
+
+    <!-- Main screen -->
+    <string name="err_no_root">No root: enable KernelSU/dfroot and grant root access to the app</string>
+    <string name="err_read_db">Couldn\'t read the Dolby database</string>
+    <string name="apply_failed">Couldn\'t apply the changes</string>
+    <string name="update_check_failed">Couldn\'t reach GitHub</string>
+    <string name="update_latest">You have the latest version</string>
+    <string name="title_eq">Equalizer</string>
+    <string name="title_about">About</string>
+    <string name="use_dolby">Use Dolby Atmos</string>
+    <string name="live_on">● Live changes, without interrupting the music</string>
+    <string name="live_off">No live control: changes are applied when audio restarts</string>
+    <string name="profile">Profile</string>
+    <string name="settings_for">Settings for</string>
+    <string name="endpoint_speaker">Speaker</string>
+    <string name="endpoint_headphone">Headphones</string>
+    <string name="endpoint_headphone_long">Headphones · BT · USB</string>
+    <string name="endpoint_active_mark">%1$s ●</string>
+    <string name="endpoint_not_playing">Not playing here: saved and applied when you use it</string>
+    <string name="endpoint_in_use_headphone">In use · includes wired, Bluetooth and USB-C</string>
+    <string name="endpoint_in_use">In use</string>
+    <string name="group_sound">Sound</string>
+    <string name="eq_unavailable">Not available for this profile</string>
+    <string name="ieq">Intelligent equalizer</string>
+    <string name="group_bass">Bass</string>
+    <string name="bass_enhancer">Bass enhancer</string>
+    <string name="bass_enhancer_summary">Stronger bass without distortion</string>
+    <string name="bass_level">Bass level</string>
+    <string name="bass_type">Bass type</string>
+    <string name="dolby_bass_boost">Dolby internal bass boost</string>
+    <string name="bass_footer">Bass level and type take effect instantly. The Dolby internal bass boost is only applied when you pause the music.</string>
+    <string name="group_space_voice">Space and voice</string>
+    <string name="surround">Surround virtualizer</string>
+    <string name="surround_summary">Wider, more immersive soundstage</string>
+    <string name="virtualizer_mode">Virtualizer mode</string>
+    <string name="virtualizer_standard">Standard</string>
+    <string name="virtualizer_immersive">Immersive</string>
+    <string name="virtualizer_footer">The virtualizer mode is applied when you pause the music.</string>
+    <string name="dialogue">Dialogue enhancer</string>
+    <string name="dialogue_summary">Clearer voices in videos and movies</string>
+    <string name="reverb">Reverb suppression</string>
+    <string name="reverb_summary">Removes some room echo from voices (subtle effect)</string>
+    <string name="group_volume">Volume</string>
+    <string name="leveler">Volume leveler</string>
+    <string name="leveler_summary">Even volume across songs and apps</string>
+    <string name="extra_gain">Extra gain</string>
+    <string name="extra_gain_footer">Extra gain takes effect instantly.</string>
+    <string name="group_intelligent">Intelligent</string>
+    <string name="adaptive_virtualizer">Adaptive virtualizer</string>
+    <string name="adaptive_virtualizer_summary">Adjusts surround sound to the content</string>
+    <string name="adaptive_eq">Adaptive equalizer</string>
+    <string name="adaptive_eq_summary">Adapts the intelligent equalizer to the content</string>
+    <string name="intelligent_footer">Applied when you pause the music.</string>
+    <string name="group_general">General</string>
+    <string name="reset_values">Reset settings</string>
+    <string name="reset_values_summary">Go back to how it was the first time you opened the app</string>
+    <string name="updates">Updates</string>
+    <string name="updates_summary">Version %1$s · Check now</string>
+    <string name="about_summary">Credits and source code</string>
+    <string name="reset_confirm_title">Reset settings?</string>
+    <string name="reset_confirm_text">Dolby goes back to the configuration it had the first time you opened the app. The music cuts out for a moment.</string>
+    <string name="reset_done">Settings restored</string>
+    <string name="reset_failed">Couldn\'t restore the settings</string>
+
+    <!-- Dolby profiles -->
+    <string name="profile_dynamic">Dynamic</string>
+    <string name="profile_movie">Movie</string>
+    <string name="profile_music">Music</string>
+    <string name="profile_voice">Voice</string>
+    <string name="profile_mobility">Mobility</string>
+    <string name="profile_on_the_go">On the go</string>
+    <string name="profile_commute">Commute</string>
+    <string name="profile_travel">Travel</string>
+
+    <!-- Intelligent equalizer presets -->
+    <string name="ieq_detailed">Detailed</string>
+    <string name="ieq_balanced">Balanced</string>
+    <string name="ieq_warm">Warm</string>
+
+    <!-- Bass types -->
+    <string name="curve_deep">Deep</string>
+    <string name="curve_punchy">Punchy</string>
+    <string name="curve_warm">Warm</string>
+
+    <!-- Equalizer -->
+    <string name="use_eq">Use equalizer</string>
+    <string name="eq_presets">Presets</string>
+    <string name="eq_flat">Flat</string>
+    <string name="eq_rich">Rich</string>
+    <string name="eq_deep">Deep</string>
+    <string name="eq_v_shape">V-shape</string>
+    <string name="eq_vocal">Vocal</string>
+    <string name="eq_bright">Bright</string>
+    <string name="eq_electronic">Electronic</string>
+    <string name="eq_rock">Rock</string>
+    <string name="eq_pop">Pop</string>
+    <string name="eq_classical">Classical</string>
+    <string name="eq_podcast">Podcast</string>
+    <string name="eq_custom">Custom</string>
+    <string name="eq_delete_preset">Delete %1$s</string>
+    <string name="eq_hint_live">Drag the points: you hear it instantly</string>
+    <string name="eq_hint">Drag the points to adjust</string>
+    <string name="group_quick_tone">Quick tone</string>
+    <string name="tone_bass">Bass</string>
+    <string name="tone_mid">Mids</string>
+    <string name="tone_treble">Treble</string>
+    <string name="eq_footer">Quick tone is added on top of the curve. The equalizer is shared by all outputs of the active profile.</string>
+    <string name="eq_save_title">Save preset</string>
+    <string name="eq_name">Name</string>
+
+    <!-- AutoEQ -->
+    <string name="autoeq">AutoEQ</string>
+    <string name="autoeq_desc">Correct your headphones\' response with measurements from the AutoEq project.</string>
+    <string name="autoeq_model_hint">Model (e.g. Galaxy Buds, AirPods)</string>
+    <string name="autoeq_no_results">No results</string>
+    <string name="autoeq_list_failed">Couldn\'t download the list: %1$s</string>
+    <string name="autoeq_curve_failed">Couldn\'t load the curve: %1$s</string>
+    <string name="autoeq_empty_curve">Empty curve</string>
+
+    <!-- About -->
+    <string name="about_title">Dolby Atmos · Obsidian</string>
+    <string name="about_version">Version %1$s · Redmi Note 14 Pro 4G</string>
+    <string name="about_desc">Controls the Dolby Atmos that already comes with the phone: it doesn\'t install another effect. Requires root.</string>
+    <string name="about_code">Code</string>
+    <string name="about_source">Source code and releases</string>
+    <string name="about_credits">Credits</string>
+    <string name="about_pa">Paranoid Android and Lunaris AOSP</string>
+    <string name="about_pa_summary">Dolby effect control · Apache-2.0</string>
+    <string name="about_autoeq">AutoEq</string>
+    <string name="about_autoeq_summary">Headphone correction curves · Jaakko Pasanen</string>
+    <string name="about_trademark">Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories. This app is not affiliated with Dolby.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_no_root">No root</string>
+
+    <!-- Updates -->
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_installing">Installing… the app will close and reopen.</string>
+    <string name="update_install_failed">Couldn\'t install automatically. You can download it from the browser.</string>
+    <string name="update_not_completed">The installation didn\'t complete. Try again or download it from the browser.</string>
+    <string name="update_required">Required update</string>
+    <string name="update_available_title">A new version is available</string>
+    <string name="update_available_text">Version %1$s available (you have %2$s)</string>
+    <string name="update_now">Update now</string>
+    <string name="update_browser">Browser</string>
+    <string name="update_skip">Skip</string>
+    <string name="update_later">Later</string>
+    <string name="notif_downloading">Downloading update…</string>
+    <string name="notif_failed_text">Couldn\'t install automatically. Tap to download it.</string>
+    <string name="notif_new_version_title">A new version of Dolby Atmos is available</string>
+    <string name="notif_version_available">Version %1$s available</string>
+</resources>

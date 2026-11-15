@@ -1,10 +1,10 @@
-name: Compilar APK
+name: Build APK
 
 on:
   push:
-    # "pruebas": compila sin publicar nada en Releases (para probar antes)
+    # "pruebas": builds without publishing anything to Releases (for testing first)
     branches: [ main, pruebas ]
-    # Cambios solo en el README no generan una versión nueva de la app
+    # README-only changes do not create a new app version
     paths-ignore:
       - 'README.md'
   workflow_dispatch:
@@ -18,16 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Versión
+      - name: Version
         run: echo "APP_VERSION=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_ENV"
 
-      - name: Comprobar que la versión es nueva
+      - name: Check that the version is new
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json name --jq '.[].name' | grep -Fxq "Dolby Atmos $APP_VERSION"; then
-            echo "::error::La versión $APP_VERSION ya está publicada. Sube el número del archivo VERSION."
+            echo "::error::Version $APP_VERSION is already published. Bump the number in the VERSION file."
             exit 1
           fi
 
@@ -40,7 +40,7 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Clave de firma (desde los Secrets)
+      - name: Signing key (from Secrets)
         env:
           KS: ${{ secrets.KEYSTORE_B64 }}
         run: |
@@ -48,7 +48,7 @@ jobs:
           echo "$KS" | base64 -d > "$RUNNER_TEMP/audiomax.jks"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/audiomax.jks" >> "$GITHUB_ENV"
 
-      - name: Probar y compilar
+      - name: Test and build
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
         run: |
@@ -56,12 +56,12 @@ jobs:
           gradle testReleaseUnitTest assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk DolbyAtmos.apk
 
-      - name: Mostrar errores de compilación
+      - name: Show build errors
         if: failure()
         run: |
           grep -E "^e: |error:|What went wrong" -A 2 build.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
 
-      - name: Compilación de medición (solo rama pruebas, no se publica)
+      - name: Measurement build (pruebas branch only, never published)
         if: github.ref == 'refs/heads/pruebas'
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
@@ -75,18 +75,18 @@ jobs:
           name: DolbyAtmos-measure
           path: DolbyAtmos-measure.apk
 
-      - name: Borrar la clave
+      - name: Delete the key
         if: always()
         run: rm -f "$RUNNER_TEMP/audiomax.jks"
 
-      - name: Datos de actualización (update.json)
+      - name: Update data (update.json)
         if: github.ref == 'refs/heads/main'
         run: |
           python3 - <<'PY'
           import hashlib, json, os
           build = int(os.environ["GITHUB_RUN_NUMBER"])
           repo = os.environ["GITHUB_REPOSITORY"]
-          # MIN_BUILD: builds menores que este número tienen que actualizar (0 = nunca se obliga)
+          # MIN_BUILD: builds below this number must update (0 = never forced)
           min_build = int(open("MIN_BUILD").read().strip() or 0) if os.path.exists("MIN_BUILD") else 0
           data = {
               "build": build,
@@ -105,7 +105,7 @@ jobs:
           name: DolbyAtmos
           path: DolbyAtmos.apk
 
-      - name: Publicar en Releases
+      - name: Publish to Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:

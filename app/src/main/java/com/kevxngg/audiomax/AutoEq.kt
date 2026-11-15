@@ -9,8 +9,8 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 
 /**
- * Curvas de corrección de auriculares del proyecto AutoEq (github.com/jaakkopasanen/AutoEq),
- * convertidas a las 20 bandas del ecualizador de Dolby.
+ * Headphone correction curves from the AutoEq project (github.com/jaakkopasanen/AutoEq),
+ * converted to the 20 bands of the Dolby equalizer.
  */
 object AutoEq {
     private const val BASE = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/"
@@ -31,7 +31,7 @@ object AutoEq {
         }
     }
 
-    /** Lista de auriculares (se guarda una semana en caché). */
+    /** List of headphones (cached for one week). */
     fun index(ctx: Context): List<Entry> {
         val f = File(ctx.cacheDir, "autoeq_index.md")
         val text = if (f.exists() && System.currentTimeMillis() - f.lastModified() < 7L * 24 * 3600 * 1000) f.readText()
@@ -43,15 +43,15 @@ object AutoEq {
         }.toList()
     }
 
-    /** Curva para las frecuencias dadas, en 1/16 dB (±12 dB), centrada para no perder volumen. */
-    fun curve(e: Entry, freqs: List<Int>): List<Int> {
+    /** Curve for the given frequencies, in 1/16 dB (±12 dB), centered so no loudness is lost. */
+    fun curve(ctx: Context, e: Entry, freqs: List<Int>): List<Int> {
         val file = URLEncoder.encode("${e.name} GraphicEQ.txt", "UTF-8").replace("+", "%20")
         val text = get("$BASE${e.path}/$file")
         val pts = text.substringAfter("GraphicEQ:").split(";").mapNotNull { p ->
             val parts = p.trim().split(Regex("\\s+"))
             if (parts.size == 2) parts[0].toDoubleOrNull()?.let { f -> parts[1].toDoubleOrNull()?.let { f to it } } else null
         }.sortedBy { it.first }
-        require(pts.size > 2) { "Curva vacía" }
+        require(pts.size > 2) { ctx.getString(R.string.autoeq_empty_curve) }
         fun at(f: Double): Double {
             if (f <= pts.first().first) return pts.first().second
             if (f >= pts.last().first) return pts.last().second
@@ -62,7 +62,7 @@ object AutoEq {
             return g0 + (g1 - g0) * t
         }
         val db = freqs.map { at(it.toDouble()) }
-        // AutoEq baja todo para evitar saturar; se centra en la zona media para no perder volumen
+        // AutoEq lowers everything to avoid clipping; center on the midrange so no loudness is lost
         val mid = db.sorted()[db.size / 2]
         return db.map { (((it - mid) * 16) / 4).roundToInt().times(4).coerceIn(-192, 192) }
     }

@@ -14,13 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-/** Material You con los colores del fondo de pantalla, como los Ajustes de Android. */
+/** Material You with the wallpaper colors, like Android Settings. */
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
@@ -33,7 +34,7 @@ fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, content = content)
 }
 
-/** Interruptor principal grande (MainSwitchBar de AOSP). */
+/** Large main switch (AOSP MainSwitchBar). */
 @Composable
 fun MainSwitchBar(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val cs = MaterialTheme.colorScheme
@@ -53,7 +54,7 @@ fun MainSwitchBar(title: String, checked: Boolean, onChange: (Boolean) -> Unit) 
     }
 }
 
-/** Grupo de preferencias con esquinas redondeadas (estilo Android 16). */
+/** Preference group with rounded corners (Android 16 style). */
 @Composable
 fun PrefGroup(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
@@ -101,7 +102,7 @@ fun SwitchPref(
     }
 }
 
-/** Deslizador; avisa del valor final al soltar (para aplicar una sola vez). */
+/** Slider; reports the final value on release (so it is applied only once). */
 @Composable
 fun SliderPref(
     title: String, value: Int, min: Int, max: Int, step: Int, enabled: Boolean = true,
@@ -122,7 +123,7 @@ fun SliderPref(
     }
 }
 
-/** Preferencia de lista: muestra la opción elegida y abre un diálogo con botones de radio. */
+/** List preference: shows the selected option and opens a dialog with radio buttons. */
 @Composable
 fun <T> ListPref(
     title: String, options: List<Pair<T, String>>, selected: T, enabled: Boolean = true,
@@ -153,9 +154,14 @@ fun <T> ListPref(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { open = false }) { Text("Cancelar") } },
+        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
     )
 }
+
+/** Resolves (id, @StringRes name) options into (id, text) pairs for [ListPref]. */
+@Composable
+fun <T> labels(options: List<Pair<T, Int>>): List<Pair<T, String>> =
+    options.map { (id, res) -> id to stringResource(res) }
 
 @Composable
 fun NavPref(title: String, summary: String?, enabled: Boolean = true, onClick: () -> Unit) {

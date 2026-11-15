@@ -1,8 +1,8 @@
 package com.kevxngg.audiomax
 
 /**
- * Una actualización solo es obligatoria cuando la versión publicada lo indica con
- * una build mínima (archivo MIN_BUILD del repositorio). Por defecto nunca bloquea.
+ * An update is only mandatory when the published release says so with a minimum
+ * build (MIN_BUILD file in the repository). By default it never blocks.
  */
 object UpdatePolicy {
     fun isRequired(installed: Int, minBuild: Int): Boolean =

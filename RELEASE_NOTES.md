@@ -1,6 +1,7 @@
 ## Dolby Atmos 1.2
-Auditoría del sonido: cada opción se midió en el teléfono, capturando el audio después de Dolby.
+Sound audit: every option was measured on the phone by capturing the audio after Dolby.
 
-- Se quitan las opciones que no cambian el sonido: amplitud, ángulo y distancia del virtualizador, atenuar el fondo al hablar, bajo virtual, volumen máximo de Dolby, protección auditiva, nivelador inteligente, compresor envolvente y modelador de volumen.
-- El sonido envolvente y el virtualizador adaptativo solo se muestran con auriculares (en el altavoz no hacen nada).
-- Siguen, porque funcionan: ecualizador, ganancia extra, ecualizador inteligente e intensidad, realce de bajos, nivel y tipo de graves, refuerzo interno, sonido envolvente y modo, realce de diálogos e intensidad, nivelador e intensidad, ecualizador adaptativo y supresión de reverberación (efecto leve).
+- **English and Spanish:** the app now follows your system language.
+- **Removed options that don't change the sound:** virtualizer width, angle and distance, background ducking, virtual bass, Dolby volume max, hearing protection, smart leveler, surround compressor and volume modeler.
+- **Surround virtualizer and adaptive virtualizer** only show with headphones (they do nothing on the speaker).
+- **Still here, because they work:** equalizer, extra gain, intelligent equalizer and amount, bass enhancer, bass level and type, internal bass boost, surround virtualizer and mode, dialogue enhancer and amount, volume leveler and amount, adaptive equalizer, and reverb suppression (subtle).

@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,27 +27,30 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Presets del ecualizador en dB para las 20 bandas de Dolby (47 Hz … 19.7 kHz). */
+/** Equalizer presets in dB for the 20 Dolby bands (47 Hz … 19.7 kHz); name is a string resource. */
 object EqPresets {
-    val list: List<Pair<String, List<Int>>> = listOf(
-        "Plano" to List(20) { 0 },
-        "Rico" to listOf(4, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 2),
-        "Profundo" to listOf(6, 6, 5, 4, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        "En V" to listOf(5, 5, 4, 3, 1, 0, -1, -2, -2, -2, -1, 0, 1, 2, 3, 4, 4, 4, 3, 3),
-        "Vocal" to listOf(-2, -2, -1, 0, 1, 2, 3, 3, 3, 3, 2, 2, 1, 0, 0, 0, -1, -1, -1, -1),
-        "Brillante" to listOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 3, 3),
-        "Electrónica" to listOf(6, 5, 4, 2, 0, -1, -1, 0, 0, 1, 1, 2, 2, 3, 3, 3, 2, 2, 1, 1),
-        "Rock" to listOf(4, 4, 3, 2, 0, -1, -2, -1, 0, 1, 2, 3, 3, 3, 3, 2, 2, 2, 1, 1),
-        "Pop" to listOf(-1, 0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 1, 1, 2, 2, 2, 1, 1, 0),
-        "Clásica" to listOf(3, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3),
-        "Podcast" to listOf(-4, -4, -3, -1, 0, 1, 2, 3, 3, 3, 3, 2, 1, 0, -1, -1, -2, -2, -3, -3),
+    val list: List<Pair<Int, List<Int>>> = listOf(
+        R.string.eq_flat to List(20) { 0 },
+        R.string.eq_rich to listOf(4, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 2),
+        R.string.eq_deep to listOf(6, 6, 5, 4, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        R.string.eq_v_shape to listOf(5, 5, 4, 3, 1, 0, -1, -2, -2, -2, -1, 0, 1, 2, 3, 4, 4, 4, 3, 3),
+        R.string.eq_vocal to listOf(-2, -2, -1, 0, 1, 2, 3, 3, 3, 3, 2, 2, 1, 0, 0, 0, -1, -1, -1, -1),
+        R.string.eq_bright to listOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 3, 3),
+        R.string.eq_electronic to listOf(6, 5, 4, 2, 0, -1, -1, 0, 0, 1, 1, 2, 2, 3, 3, 3, 2, 2, 1, 1),
+        R.string.eq_rock to listOf(4, 4, 3, 2, 0, -1, -2, -1, 0, 1, 2, 3, 3, 3, 3, 2, 2, 2, 1, 1),
+        R.string.eq_pop to listOf(-1, 0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 1, 1, 2, 2, 2, 1, 1, 0),
+        R.string.eq_classical to listOf(3, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3),
+        R.string.eq_podcast to listOf(-4, -4, -3, -1, 0, 1, 2, 3, 3, 3, 3, 2, 1, 0, -1, -1, -2, -2, -3, -3),
     ).map { (n, db) -> n to db.map { it * 16 } }
 
-    fun nameOf(gains: List<Int>, user: List<Pair<String, List<Int>>> = emptyList()): String =
-        (list + user).firstOrNull { it.second == gains }?.first ?: "Personalizado"
+    /** Display name of the curve: built-in preset first, then user preset, otherwise "Custom". */
+    fun nameOf(ctx: Context, gains: List<Int>, user: List<Pair<String, List<Int>>> = emptyList()): String =
+        list.firstOrNull { it.second == gains }?.let { ctx.getString(it.first) }
+            ?: user.firstOrNull { it.second == gains }?.first
+            ?: ctx.getString(R.string.eq_custom)
 }
 
-/** Presets guardados por el usuario. */
+/** Presets saved by the user. */
 class UserPresets(ctx: Context) {
     private val sp = ctx.getSharedPreferences("eq_presets", Context.MODE_PRIVATE)
 
@@ -68,13 +73,13 @@ class UserPresets(ctx: Context) {
     }
 }
 
-private const val RANGE = 192 // ±12 dB en 1/16 dB
+private const val RANGE = 192 // ±12 dB in 1/16 dB
 
-/** Pesos por banda para los controles de tono. */
+/** Per-band weights for the tone controls (key: label string resource). */
 private val TONE_WEIGHTS = mapOf(
-    "Graves" to floatArrayOf(1f, 1f, .95f, .85f, .7f, .5f, .3f, .15f, .05f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
-    "Medios" to floatArrayOf(0f, 0f, 0f, .1f, .3f, .55f, .8f, 1f, 1f, 1f, .9f, .7f, .45f, .2f, .05f, 0f, 0f, 0f, 0f, 0f),
-    "Agudos" to floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, .05f, .2f, .4f, .6f, .8f, .9f, 1f, 1f, 1f, 1f),
+    R.string.tone_bass to floatArrayOf(1f, 1f, .95f, .85f, .7f, .5f, .3f, .15f, .05f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
+    R.string.tone_mid to floatArrayOf(0f, 0f, 0f, .1f, .3f, .55f, .8f, 1f, 1f, 1f, .9f, .7f, .45f, .2f, .05f, 0f, 0f, 0f, 0f, 0f),
+    R.string.tone_treble to floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, .05f, .2f, .4f, .6f, .8f, .9f, 1f, 1f, 1f, 1f),
 )
 
 @Composable
@@ -85,20 +90,22 @@ fun EqScreen(
     onSavePreset: (String, List<Int>) -> Unit, onDeletePreset: (String) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val ctx = LocalContext.current
     var selected by remember { mutableIntStateOf(-1) }
     val current = rememberUpdatedState(gains)
     var saveDialog by remember { mutableStateOf(false) }
     var autoEq by remember { mutableStateOf(false) }
-    val tone = remember { mutableStateMapOf("Graves" to 0, "Medios" to 0, "Agudos" to 0) }
+    val tone = remember { mutableStateMapOf(R.string.tone_bass to 0, R.string.tone_mid to 0, R.string.tone_treble to 0) }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        MainSwitchBar("Usar ecualizador", enabled, onEnabled)
+        MainSwitchBar(stringResource(R.string.use_eq), enabled, onEnabled)
         Spacer(Modifier.height(16.dp))
 
-        val name = EqPresets.nameOf(gains, user)
-        Text("Presets", color = cs.primary, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+        val name = EqPresets.nameOf(ctx, gains, user)
+        Text(stringResource(R.string.eq_presets), color = cs.primary, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EqPresets.list.forEach { (n, g) ->
+            EqPresets.list.forEach { (res, g) ->
+                val n = stringResource(res)
                 FilterChip(
                     selected = n == name, enabled = enabled,
                     onClick = { onChange(g); onDone() }, label = { Text(n) },
@@ -114,7 +121,7 @@ fun EqScreen(
                         onClick = { onChange(g); onDone() }, label = { Text(n) },
                         trailingIcon = {
                             Icon(
-                                Icons.Default.Close, "Borrar $n",
+                                Icons.Default.Close, stringResource(R.string.eq_delete_preset, n),
                                 Modifier.size(18.dp).pointerInput(n) { detectTapGestures { onDeletePreset(n) } }
                             )
                         },
@@ -129,7 +136,7 @@ fun EqScreen(
                 val sel = selected
                 Text(
                     if (sel in gains.indices) "${hz(freqs.getOrNull(sel) ?: 0)}  ·  ${db(gains[sel])}"
-                    else if (live) "Arrastra los puntos: se oye al momento" else "Arrastra los puntos para ajustar",
+                    else stringResource(if (live) R.string.eq_hint_live else R.string.eq_hint),
                     Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = cs.onSurfaceVariant, fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -205,18 +212,18 @@ fun EqScreen(
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(enabled = enabled, onClick = { autoEq = true }) { Text("AutoEQ") }
-            TextButton(enabled = enabled, onClick = { saveDialog = true }) { Text("Guardar") }
+            TextButton(enabled = enabled, onClick = { autoEq = true }) { Text(stringResource(R.string.autoeq)) }
+            TextButton(enabled = enabled, onClick = { saveDialog = true }) { Text(stringResource(R.string.save)) }
             TextButton(enabled = enabled && gains.any { abs(it) > 0 }, onClick = {
                 tone.keys.toList().forEach { tone[it] = 0 }
                 onChange(List(gains.size) { 0 }); onDone()
-            }) { Text("Restablecer") }
+            }) { Text(stringResource(R.string.reset)) }
         }
 
-        PrefGroup("Tono rápido") {
+        PrefGroup(stringResource(R.string.group_quick_tone)) {
             TONE_WEIGHTS.forEach { (label, weights) ->
                 SliderPref(
-                    label, tone[label] ?: 0, -6, 6, 1, enabled, { String.format(Locale.US, "%+d dB", it) },
+                    stringResource(label), tone[label] ?: 0, -6, 6, 1, enabled, { String.format(Locale.US, "%+d dB", it) },
                     { v ->
                         val delta = v - (tone[label] ?: 0)
                         if (delta != 0) {
@@ -230,7 +237,7 @@ fun EqScreen(
                 )
             }
         }
-        FooterText("El tono rápido se suma a la curva. El ecualizador es común a todas las salidas del perfil activo.")
+        FooterText(stringResource(R.string.eq_footer))
     }
 
     if (autoEq) AutoEqDialog(freqs, onApply = { g, name ->
@@ -243,16 +250,16 @@ fun EqScreen(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { saveDialog = false },
-            title = { Text("Guardar preset") },
+            title = { Text(stringResource(R.string.eq_save_title)) },
             text = {
-                OutlinedTextField(text, { text = it.take(24) }, singleLine = true, label = { Text("Nombre") })
+                OutlinedTextField(text, { text = it.take(24) }, singleLine = true, label = { Text(stringResource(R.string.eq_name)) })
             },
             confirmButton = {
                 TextButton(enabled = text.isNotBlank(), onClick = { onSavePreset(text.trim(), current.value); saveDialog = false }) {
-                    Text("Guardar")
+                    Text(stringResource(R.string.save))
                 }
             },
-            dismissButton = { TextButton(onClick = { saveDialog = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { saveDialog = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

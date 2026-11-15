@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -70,7 +71,7 @@ fun App(store: DolbyStore) {
         scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching {
-                    if (!Root.available()) error("Sin root: activa KernelSU/dfroot y concede root a la app")
+                    if (!Root.available()) error(ctx.getString(R.string.err_no_root))
                     val st = store.load()
                     live = Live.available
                     st
@@ -81,7 +82,7 @@ fun App(store: DolbyStore) {
         }
     }
 
-    // Guardado en la base de datos sin reiniciar (para que dure tras reiniciar el teléfono)
+    // Save to the database without restarting (so it survives a phone reboot)
     var persistJob by remember { mutableStateOf<Job?>(null) }
     var deferredPending by remember { mutableStateOf(false) }
     fun persist() {
@@ -95,7 +96,7 @@ fun App(store: DolbyStore) {
         }
     }
 
-    /** Aplica al momento lo que se puede en vivo. Sin control en vivo, cae al reinicio. */
+    /** Applies instantly whatever can be applied live. Without live control, falls back to a restart. */
     fun commit() {
         val s = state ?: return
         val keys = dirty.toSet()
@@ -104,7 +105,7 @@ fun App(store: DolbyStore) {
         val ep = endpoint
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
-                // La salida que no está sonando se guarda y se sincroniza después
+                // The output that is not playing is saved and synced later
                 if (ep != Live.activeEndpoint(ctx) && keys.none { it == "dolbyOn" || it == "profile" }) true
                 else Live.apply(s.copy(activeProfile = p), p, ep, keys)
             }
@@ -112,18 +113,18 @@ fun App(store: DolbyStore) {
                 applying = true
                 val r = withContext(Dispatchers.IO) { runCatching { store.save(s.copy(activeProfile = p), restart = true) } }
                 applying = false
-                if (r.getOrNull()?.out?.contains("OK") != true) snack.showSnackbar("No se pudo aplicar")
+                if (r.getOrNull()?.out?.contains("OK") != true) snack.showSnackbar(ctx.getString(R.string.apply_failed))
             }
         }
     }
 
-    /** Ajustes que Dolby no deja cambiar en vivo: se guardan y se aplican solos al pausar. */
+    /** Settings Dolby doesn't allow changing live: saved and applied automatically on pause. */
     fun deferred() {
         deferredPending = true
         persist()
     }
 
-    // Sigue a la salida en uso y reaplica los ajustes (Dolby recarga los antiguos al cambiar)
+    // Follow the output in use and reapply the settings (Dolby reloads the old ones on change)
     DisposableEffect(Unit) {
         val am = ctx.getSystemService(AudioManager::class.java)
         val cb = object : AudioDeviceCallback() {
@@ -149,15 +150,15 @@ fun App(store: DolbyStore) {
         }
     }
 
-    // Actualizaciones (igual que Monitor)
+    // Updates (same as Monitor)
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
     fun checkUpdate(manual: Boolean) {
         scope.launch {
             val info = withContext(Dispatchers.IO) { Updater.fetch(ctx) }
             when {
-                info == null -> if (manual) snack.showSnackbar("No se pudo consultar GitHub")
+                info == null -> if (manual) snack.showSnackbar(ctx.getString(R.string.update_check_failed))
                 Updater.isOffered(ctx, info, ignoreSkipped = manual) && (manual || !Updater.isSnoozed(info.build)) -> update = info
-                else -> if (manual) snack.showSnackbar("Tienes la última versión")
+                else -> if (manual) snack.showSnackbar(ctx.getString(R.string.update_latest))
             }
         }
     }
@@ -178,10 +179,14 @@ fun App(store: DolbyStore) {
         topBar = {
             Column {
                 LargeTopAppBar(
-                    title = { Text(when (screen) { Screen.EQ -> "Ecualizador"; Screen.ABOUT -> "Acerca de"; else -> "Dolby Atmos" }) },
+                    title = {
+                        Text(stringResource(when (screen) {
+                            Screen.EQ -> R.string.title_eq; Screen.ABOUT -> R.string.title_about; else -> R.string.app_name
+                        }))
+                    },
                     navigationIcon = {
                         if (screen != Screen.MAIN) IconButton(onClick = { screen = Screen.MAIN }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                         }
                     },
                     scrollBehavior = scroll,
@@ -202,7 +207,7 @@ fun App(store: DolbyStore) {
                 Column(Modifier.padding(16.dp)) {
                     PrefGroup { FooterText(it) }
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { reload() }, Modifier.fillMaxWidth()) { Text("Reintentar") }
+                    Button(onClick = { reload() }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.retry)) }
                 }
             }
             val s = state ?: run {
@@ -218,7 +223,7 @@ fun App(store: DolbyStore) {
             fun i(k: String) = pe[k]?.toIntOrNull() ?: 0
             fun bool(v: Boolean) = if (v) "1" else "0"
             fun done() { if (live) commit() else persist() }
-            /** Cambia columnas: en vivo si se puede; si no, se guarda y se aplica al pausar. */
+            /** Changes columns: live if possible; otherwise saved and applied on pause. */
             fun change(vararg kv: Pair<String, String>, now: Boolean = true) {
                 val st = state ?: return
                 val cur = st.pe[key] ?: return
@@ -230,7 +235,7 @@ fun App(store: DolbyStore) {
             val pr = s.prof[profile] ?: emptyMap()
             fun pb(k: String) = pr[k] == "1"
             fun pi(k: String) = pr[k]?.toIntOrNull() ?: 0
-            /** Ajustes del perfil (tabla profiles): se aplican al pausar la música. */
+            /** Profile settings (profiles table): applied when the music is paused. */
             fun setProf(k: String, v: String, now: Boolean = true) {
                 val st = state ?: return
                 val cur = st.prof[profile] ?: return
@@ -244,7 +249,7 @@ fun App(store: DolbyStore) {
                 state = st.copy(tuning = st.tuning + (endpoint to (cur + (k to v))))
                 deferredPending = true
             }
-            /** Cambia la curva del ecualizador y la manda en vivo mientras se mueve el control. */
+            /** Changes the equalizer curve and sends it live while the control is moving. */
             fun setGeq(g: List<Int>) {
                 val st = state ?: return
                 val ns = st.copy(geq = st.geq + (profile to g))
@@ -281,80 +286,83 @@ fun App(store: DolbyStore) {
             }
 
             Column(Modifier.padding(horizontal = 16.dp)) {
-                MainSwitchBar("Usar Dolby Atmos", on) { v ->
+                MainSwitchBar(stringResource(R.string.use_dolby), on) { v ->
                     state = state?.copy(dolbyOn = v)
                     dirty.add("dolbyOn")
                     done()
                 }
                 Text(
-                    if (live) "● Cambios en vivo, sin cortar la música" else "Sin control en vivo: los cambios se aplican al reiniciar el audio",
+                    stringResource(if (live) R.string.live_on else R.string.live_off),
                     Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp),
                     color = if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
 
                 PrefGroup {
-                    ListPref("Perfil", DolbyStore.PROFILES, profile, enabled = on) {
+                    ListPref(stringResource(R.string.profile), labels(DolbyStore.PROFILES), profile, enabled = on) {
                         profile = it
                         dirty.add("profile")
                         done()
                     }
                     PrefDivider()
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
-                        Text("Ajustes para", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.settings_for), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(8.dp))
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            val eps = listOf("speaker" to "Altavoz", "headphone" to "Auriculares")
-                            eps.forEachIndexed { idx, (id, name) ->
+                            val eps = listOf("speaker" to R.string.endpoint_speaker, "headphone" to R.string.endpoint_headphone)
+                            eps.forEachIndexed { idx, (id, res) ->
+                                val name = stringResource(res)
                                 SegmentedButton(
                                     selected = endpoint == id, onClick = { endpoint = id },
                                     shape = SegmentedButtonDefaults.itemShape(idx, eps.size),
-                                ) { Text(if (id == activeEp) "$name ●" else name) }
+                                ) { Text(if (id == activeEp) stringResource(R.string.endpoint_active_mark, name) else name) }
                             }
                         }
                         Text(
-                            when {
-                                endpoint != activeEp -> "No está sonando por aquí: se guarda y se aplica cuando la uses"
-                                endpoint == "headphone" -> "En uso · incluye cable, Bluetooth y USB-C"
-                                else -> "En uso"
-                            },
+                            stringResource(
+                                when {
+                                    endpoint != activeEp -> R.string.endpoint_not_playing
+                                    endpoint == "headphone" -> R.string.endpoint_in_use_headphone
+                                    else -> R.string.endpoint_in_use
+                                }
+                            ),
                             Modifier.padding(top = 6.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
 
-                PrefGroup("Sonido") {
+                PrefGroup(stringResource(R.string.group_sound)) {
                     NavPref(
-                        "Ecualizador",
+                        stringResource(R.string.title_eq),
                         when {
-                            gains == null -> "No disponible en este perfil"
-                            !b("graphic_equalizer_enable") -> "Desactivado"
-                            else -> EqPresets.nameOf(gains, presets)
+                            gains == null -> stringResource(R.string.eq_unavailable)
+                            !b("graphic_equalizer_enable") -> stringResource(R.string.off)
+                            else -> EqPresets.nameOf(ctx, gains, presets)
                         },
                         enabled = on && gains != null,
                     ) { screen = Screen.EQ }
                     PrefDivider()
                     val ieq = if (b("ieq_enable")) i("selected_ieq_preset_id") else 0
-                    ListPref("Ecualizador inteligente", listOf(0 to "Desactivado") + DolbyStore.IEQ_PRESETS, ieq, enabled = on) { v ->
+                    ListPref(stringResource(R.string.ieq), labels(listOf(0 to R.string.off) + DolbyStore.IEQ_PRESETS), ieq, enabled = on) { v ->
                         if (v == 0) change("ieq_enable" to "0")
                         else change("ieq_enable" to "1", "selected_ieq_preset_id" to v.toString())
                     }
                     if (ieq != 0) SliderPref(
-                        "Intensidad", i("ieq_amount"), 0, 16, 1, on, { "$it" },
+                        stringResource(R.string.intensity), i("ieq_amount"), 0, 16, 1, on, { "$it" },
                         { change("ieq_amount" to it.toString(), now = false) }, { done() }
                     )
                 }
 
-                PrefGroup("Graves") {
-                    SwitchPref("Realce de bajos", "Graves más potentes sin saturar", b("bass_enhancer_enable"), on) {
+                PrefGroup(stringResource(R.string.group_bass)) {
+                    SwitchPref(stringResource(R.string.bass_enhancer), stringResource(R.string.bass_enhancer_summary), b("bass_enhancer_enable"), on) {
                         change("bass_enhancer_enable" to bool(it))
                     }
                     if (b("bass_enhancer_enable") && gains != null) {
                         val lvl = tone.bass(profile)
                         val curve = tone.curve(profile)
                         SliderPref(
-                            "Nivel de bajos", lvl, 0, 12, 1, on, { "+$it dB" },
+                            stringResource(R.string.bass_level), lvl, 0, 12, 1, on, { "+$it dB" },
                             { v ->
                                 val old = tone.bass(profile)
                                 val g = state?.geq?.get(profile)
@@ -365,7 +373,7 @@ fun App(store: DolbyStore) {
                             },
                             { done() },
                         )
-                        ListPref("Tipo de graves", ToneStore.CURVES, curve, enabled = on) { c ->
+                        ListPref(stringResource(R.string.bass_type), labels(ToneStore.CURVES), curve, enabled = on) { c ->
                             val g = state?.geq?.get(profile)
                             if (c != curve && g != null) {
                                 setGeq(ToneStore.withBass(ToneStore.withBass(g, lvl, curve, -1), lvl, c, 1))
@@ -373,60 +381,61 @@ fun App(store: DolbyStore) {
                                 done()
                             }
                         }
-                        // "Bajo virtual" quitado: medido en el teléfono, no cambia el sonido (altavoz ni auriculares)
+                        // "Virtual bass" removed: measured on the phone, it does not change the sound (speaker or headphones)
                         SliderPref(
-                            "Refuerzo interno de Dolby", tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0,
+                            stringResource(R.string.dolby_bass_boost), tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0,
                             0, if (endpoint == "speaker") 192 else 288, 8, on, ::db,
                             { setTun("bass_enhancer_boost", it.toString()) }, { deferred() }
                         )
-                        FooterText("El nivel y el tipo de graves suenan al momento. El refuerzo interno de Dolby se aplica solo cuando pausas la música.")
+                        FooterText(stringResource(R.string.bass_footer))
                     }
                 }
 
-                // Amplitud, ángulo, distancia y atenuar el fondo quitados: medidos en el teléfono, no cambian el sonido.
-                // El virtualizador solo actúa con auriculares (en el altavoz no cambia nada).
-                PrefGroup("Espacio y voz") {
+                // Width, angle, distance and background ducking removed: measured on the phone, they don't change the sound.
+                // The virtualizer only acts on headphones (on the speaker it changes nothing).
+                PrefGroup(stringResource(R.string.group_space_voice)) {
                     if (endpoint == "headphone") {
-                        SwitchPref("Sonido envolvente", "Escena más amplia y envolvente", b("virtualizer_enable"), on) {
+                        SwitchPref(stringResource(R.string.surround), stringResource(R.string.surround_summary), b("virtualizer_enable"), on) {
                             change("virtualizer_enable" to bool(it))
                         }
                         if (b("virtualizer_enable")) {
                             ListPref(
-                                "Modo del virtualizador", listOf(1 to "Estándar", 2 to "Inmersivo"),
+                                stringResource(R.string.virtualizer_mode),
+                                labels(listOf(1 to R.string.virtualizer_standard, 2 to R.string.virtualizer_immersive)),
                                 pi("headphone_virtualizer_mode").coerceIn(1, 2), enabled = on
                             ) { setProf("headphone_virtualizer_mode", it.toString()) }
-                            FooterText("El modo del virtualizador se aplica cuando pausas la música.")
+                            FooterText(stringResource(R.string.virtualizer_footer))
                         }
                         PrefDivider()
                     }
-                    SwitchPref("Realce de diálogos", "Voces más claras en vídeos y películas", b("dialog_enhancer_enable"), on) {
+                    SwitchPref(stringResource(R.string.dialogue), stringResource(R.string.dialogue_summary), b("dialog_enhancer_enable"), on) {
                         change("dialog_enhancer_enable" to bool(it))
                     }
                     if (b("dialog_enhancer_enable")) SliderPref(
-                        "Intensidad", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
+                        stringResource(R.string.intensity), i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
                         { change("dialog_enhancer_amount" to it.toString(), now = false) }, { done() }
                     )
                     PrefDivider()
                     SwitchPref(
-                        "Supresión de reverberación", "Quita algo de eco de sala en voces (efecto leve)", pb("reverb_suppression_enable"), on
+                        stringResource(R.string.reverb), stringResource(R.string.reverb_summary), pb("reverb_suppression_enable"), on
                     ) { setProf("reverb_suppression_enable", bool(it)) }
                     if (pb("reverb_suppression_enable")) SliderPref(
-                        "Intensidad", pi("reverb_suppression_amount"), 0, 16, 1, on, { "$it" },
+                        stringResource(R.string.intensity), pi("reverb_suppression_amount"), 0, 16, 1, on, { "$it" },
                         { setProf("reverb_suppression_amount", it.toString(), now = false) }, { deferred() }
                     )
                 }
 
-                PrefGroup("Volumen") {
-                    SwitchPref("Nivelador de volumen", "Volumen parejo entre canciones y apps", b("volume_leveler_enable"), on) {
+                PrefGroup(stringResource(R.string.group_volume)) {
+                    SwitchPref(stringResource(R.string.leveler), stringResource(R.string.leveler_summary), b("volume_leveler_enable"), on) {
                         change("volume_leveler_enable" to bool(it))
                     }
                     if (b("volume_leveler_enable")) SliderPref(
-                        "Intensidad", i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
+                        stringResource(R.string.intensity), i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
                         { change("volume_leveler_amount" to it.toString(), now = false) }, { done() }
                     )
                     PrefDivider()
                     if (gains != null) SliderPref(
-                        "Ganancia extra", tone.gain(profile), 0, 6, 1, on, { "+$it dB" },
+                        stringResource(R.string.extra_gain), tone.gain(profile), 0, 6, 1, on, { "+$it dB" },
                         { v ->
                             val old = tone.gain(profile)
                             val g = state?.geq?.get(profile)
@@ -437,32 +446,32 @@ fun App(store: DolbyStore) {
                         },
                         { done() },
                     )
-                    // Volumen máximo de Dolby y protección auditiva quitados: medidos en el teléfono, no cambian el sonido
-                    FooterText("La ganancia extra suena al momento.")
+                    // Dolby max volume and hearing protection removed: measured on the phone, they don't change the sound
+                    FooterText(stringResource(R.string.extra_gain_footer))
                 }
 
-                // Nivelador inteligente, compresor envolvente y modelador de volumen quitados: no cambian el sonido
-                PrefGroup("Inteligente") {
+                // Intelligent leveler, surround compressor and volume modeler removed: they don't change the sound
+                PrefGroup(stringResource(R.string.group_intelligent)) {
                     if (endpoint == "headphone") {
                         SwitchPref(
-                            "Virtualizador adaptativo", "Ajusta el sonido envolvente según el contenido",
+                            stringResource(R.string.adaptive_virtualizer), stringResource(R.string.adaptive_virtualizer_summary),
                             pb("mi_adaptive_virtualizer_steering_enable"), on
                         ) { setProf("mi_adaptive_virtualizer_steering_enable", bool(it)) }
                         PrefDivider()
                     }
                     SwitchPref(
-                        "Ecualizador adaptativo", "Ajusta el ecualizador inteligente al contenido",
+                        stringResource(R.string.adaptive_eq), stringResource(R.string.adaptive_eq_summary),
                         pb("mi_ieq_steering_enable"), on
                     ) { setProf("mi_ieq_steering_enable", bool(it)) }
-                    FooterText("Se aplican cuando pausas la música.")
+                    FooterText(stringResource(R.string.intelligent_footer))
                 }
 
-                PrefGroup("General") {
-                    NavPref("Restablecer valores", "Vuelve a como estaba la primera vez que abriste la app") { confirmReset = true }
+                PrefGroup(stringResource(R.string.group_general)) {
+                    NavPref(stringResource(R.string.reset_values), stringResource(R.string.reset_values_summary)) { confirmReset = true }
                     PrefDivider()
-                    NavPref("Actualizaciones", "Versión ${Updater.currentVersion(ctx)} · Buscar ahora") { checkUpdate(true) }
+                    NavPref(stringResource(R.string.updates), stringResource(R.string.updates_summary, Updater.currentVersion(ctx))) { checkUpdate(true) }
                     PrefDivider()
-                    NavPref("Acerca de", "Créditos y código fuente") { screen = Screen.ABOUT }
+                    NavPref(stringResource(R.string.title_about), stringResource(R.string.about_summary)) { screen = Screen.ABOUT }
                 }
                 Spacer(Modifier.height(24.dp))
             }
@@ -471,8 +480,8 @@ fun App(store: DolbyStore) {
 
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
-        title = { Text("¿Restablecer valores?") },
-        text = { Text("Dolby vuelve a la configuración que tenía la primera vez que abriste la app. La música se corta un instante.") },
+        title = { Text(stringResource(R.string.reset_confirm_title)) },
+        text = { Text(stringResource(R.string.reset_confirm_text)) },
         confirmButton = {
             TextButton(onClick = {
                 confirmReset = false
@@ -480,11 +489,13 @@ fun App(store: DolbyStore) {
                     applying = true
                     val r = withContext(Dispatchers.IO) { runCatching { store.restoreOriginal() } }
                     applying = false
-                    snack.showSnackbar(if (r.getOrNull()?.out?.contains("OK") == true) "Valores restablecidos" else "No se pudo restablecer")
+                    snack.showSnackbar(
+                        ctx.getString(if (r.getOrNull()?.out?.contains("OK") == true) R.string.reset_done else R.string.reset_failed)
+                    )
                     reload()
                 }
-            }) { Text("Restablecer") }
+            }) { Text(stringResource(R.string.reset)) }
         },
-        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
     )
 }

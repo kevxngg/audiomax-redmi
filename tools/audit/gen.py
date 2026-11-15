@@ -23,7 +23,7 @@ def speech(n):
         F=vowels[rng.integers(len(vowels))]
         v=sum(biquad_res(src,f,80+f*0.06)*(1/(k+1)) for k,f in enumerate(F))
         env=np.sin(np.linspace(0,np.pi,L))**0.6; seg=v*env
-        if rng.random()<0.3:  # fricativa
+        if rng.random()<0.3:  # fricative
             fr=np.diff(rng.standard_normal(L//2),prepend=0)*0.3*np.hanning(L//2)
             seg=np.concatenate([fr,seg]); L=len(seg)
         out[t:t+L]+=seg[:n-t]; t+=L+int(SR*rng.uniform(.05,.18))

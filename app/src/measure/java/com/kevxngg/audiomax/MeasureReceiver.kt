@@ -14,15 +14,15 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Banco de pruebas del sonido (solo en la compilación "measure", no se publica).
- * Reproduce una señal y captura lo que sale DESPUÉS de Dolby con un Visualizer en la sesión 0
- * (el Visualizer se inserta al final de la cadena de efectos).
+ * Sound test bench (only in the "measure" build, never published).
+ * Plays a signal and captures what comes out AFTER Dolby with a Visualizer on session 0
+ * (the Visualizer is inserted at the end of the effect chain).
  *
  *   am broadcast -f 0x10000020 -n com.dolbyatmos.obsidian/com.kevxngg.audiomax.MeasureReceiver
- *     --es set "110:0,0,...;111:1"   parámetros del DAP a escribir antes (perfil activo)
- *     --es sig pink.f32               señal (float32 estéreo 48 kHz) en getExternalFilesDir
+ *     --es set "110:0,0,...;111:1"   DAP parameters to write first (active profile)
+ *     --es sig pink.f32               signal (float32 stereo 48 kHz) in getExternalFilesDir
  *     --ef secs 4 --ei warm 1500 --es out r.bin
- * Salida: tramas [nanos:int64][1024 bytes u8 mono] y "MEASURE DONE" en logcat (etiqueta AudioMaxMeasure).
+ * Output: frames [nanos:int64][1024 bytes u8 mono] and "MEASURE DONE" in logcat (tag AudioMaxMeasure).
  */
 class MeasureReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {

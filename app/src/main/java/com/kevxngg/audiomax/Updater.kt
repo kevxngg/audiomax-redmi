@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,7 +43,7 @@ data class UpdateInfo(
     val label: String get() = version.ifEmpty { "build $build" }
 }
 
-/** Busca nuevas versiones en las Releases de GitHub y las instala con root. */
+/** Looks for new versions in GitHub Releases and installs them with root. */
 object Updater {
     private const val REPO = "kevxngg/dolby-atmos-obsidian"
     private const val FEED = "https://github.com/$REPO/releases/latest/download/update.json"
@@ -85,7 +86,7 @@ object Updater {
         }
     }
 
-    /** null si no se pudo consultar. */
+    /** null if the check failed. */
     fun fetch(ctx: Context): UpdateInfo? = try {
         val j = JSONObject(get("$FEED?t=${System.currentTimeMillis()}"))
         val info = UpdateInfo(
@@ -134,7 +135,7 @@ object Updater {
         return file
     }
 
-    /** Instala con root y vuelve a abrir la app (Android cierra la versión abierta al instalar). */
+    /** Installs with root and reopens the app (Android closes the running version when installing). */
     fun install(ctx: Context, file: File, sha256: String?, size: Long?): Boolean {
         if (!verify(ctx, file, sha256, size)) {
             file.delete()
@@ -150,7 +151,7 @@ object Updater {
         return true
     }
 
-    /** Tamaño y SHA-256 publicados, mismo paquete, misma firma y versión más nueva. */
+    /** Published size and SHA-256, same package, same signature and a newer version. */
     private fun verify(ctx: Context, file: File, sha256: String?, size: Long?): Boolean = try {
         val pm = ctx.packageManager
         val flags = PackageManager.GET_SIGNING_CERTIFICATES
@@ -205,36 +206,38 @@ fun UpdateDialog(info: UpdateInfo, required: Boolean = false, onDismiss: () -> U
 
     fun start() {
         busy = true
-        status = "Descargando…"
+        status = ctx.getString(R.string.update_downloading)
         progress = 0f
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 try {
                     val f = Updater.download(ctx, info.apkUrl) { p -> progress = p }
-                    status = "Instalando… la app se cerrará y volverá a abrirse."
+                    status = ctx.getString(R.string.update_installing)
                     Updater.install(ctx, f, info.sha256, info.sizeBytes)
                 } catch (e: Exception) { false }
             }
             if (!ok) {
                 busy = false
                 progress = null
-                status = "No se pudo instalar automáticamente. Puedes descargarla desde el navegador."
+                status = ctx.getString(R.string.update_install_failed)
             } else {
                 delay(30_000)
                 busy = false
                 progress = null
-                status = "La instalación no se completó. Reintenta o descarga desde el navegador."
+                status = ctx.getString(R.string.update_not_completed)
             }
         }
     }
 
     AlertDialog(
         onDismissRequest = { if (!busy && !required) onDismiss() },
-        title = { Text(if (required) "Actualización obligatoria" else "Hay una nueva versión", fontSize = 18.sp) },
+        title = {
+            Text(stringResource(if (required) R.string.update_required else R.string.update_available_title), fontSize = 18.sp)
+        },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Versión ${info.label} disponible (tienes la $current)" +
+                    stringResource(R.string.update_available_text, info.label, current) +
                         if (info.sizeBytes > 0) String.format(Locale.US, " · %.1f MB", info.sizeBytes / 1048576f) else "",
                     fontSize = 13.sp, color = Color.Gray,
                 )
@@ -244,25 +247,25 @@ fun UpdateDialog(info: UpdateInfo, required: Boolean = false, onDismiss: () -> U
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy, onClick = { start() }) { Text("Actualizar ahora") }
+            TextButton(enabled = !busy, onClick = { start() }) { Text(stringResource(R.string.update_now)) }
         },
         dismissButton = {
             Row {
                 if (!busy && status != null) {
-                    TextButton(onClick = { Updater.openInBrowser(ctx, info.apkUrl) }) { Text("Navegador") }
+                    TextButton(onClick = { Updater.openInBrowser(ctx, info.apkUrl) }) { Text(stringResource(R.string.update_browser)) }
                 }
                 if (!required) TextButton(enabled = !busy, onClick = {
                     Updater.skip(ctx, info.build); onDismiss()
-                }) { Text("Omitir") }
+                }) { Text(stringResource(R.string.update_skip)) }
                 if (!required) TextButton(enabled = !busy, onClick = {
                     Updater.snooze(info.build); onDismiss()
-                }) { Text("Más tarde") }
+                }) { Text(stringResource(R.string.update_later)) }
             }
         },
     )
 }
 
-/** "## Título" en negrita y "- punto" como viñetas. */
+/** "## Title" in bold and "- item" as bullets. */
 @Composable
 fun ReleaseNotes(notes: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

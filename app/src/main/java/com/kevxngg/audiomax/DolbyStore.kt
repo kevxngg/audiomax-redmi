@@ -6,24 +6,33 @@ import android.database.sqlite.SQLiteDatabase
 import java.io.File
 
 /**
- * Lee y escribe la configuración del Dolby nativo (DAP) del Redmi Note 14 Pro 4G.
- * El servicio dms-hal guarda todo en /data/vendor/dolby/dax_sqlite3.db; se edita una copia
- * y luego se reemplaza el original reiniciando dms-hal y audioserver.
- * Ganancias de Dolby en 1/16 dB.
+ * Reads and writes the configuration of the native Dolby (DAP) on the Redmi Note 14 Pro 4G.
+ * The dms-hal service stores everything in /data/vendor/dolby/dax_sqlite3.db; a copy is edited
+ * and then replaces the original, restarting dms-hal and audioserver.
+ * Dolby gains are in 1/16 dB.
  */
 class DolbyStore(private val ctx: Context) {
 
     companion object {
         const val DB = "/data/vendor/dolby/dax_sqlite3.db"
 
-        val PROFILES = listOf(
-            0 to "Dinámico", 1 to "Película", 2 to "Música", 3 to "Voz",
-            4 to "Movilidad", 5 to "En movimiento", 6 to "Trayecto", 7 to "Viaje",
+        /** Profile id -> display name. */
+        val PROFILES: List<Pair<Int, Int>> = listOf(
+            0 to R.string.profile_dynamic, 1 to R.string.profile_movie,
+            2 to R.string.profile_music, 3 to R.string.profile_voice,
+            4 to R.string.profile_mobility, 5 to R.string.profile_on_the_go,
+            6 to R.string.profile_commute, 7 to R.string.profile_travel,
         )
-        val ENDPOINTS = listOf("speaker" to "Altavoz", "headphone" to "Auriculares · BT · USB")
-        val IEQ_PRESETS = listOf(1 to "Detallado", 2 to "Equilibrado", 3 to "Cálido")
+        /** Endpoint id -> display name. */
+        val ENDPOINTS: List<Pair<String, Int>> = listOf(
+            "speaker" to R.string.endpoint_speaker, "headphone" to R.string.endpoint_headphone_long,
+        )
+        /** Intelligent equalizer preset id -> display name. */
+        val IEQ_PRESETS: List<Pair<Int, Int>> = listOf(
+            1 to R.string.ieq_detailed, 2 to R.string.ieq_balanced, 3 to R.string.ieq_warm,
+        )
 
-        /** Columnas de profile_endpoints que maneja la app. */
+        /** profile_endpoints columns handled by the app. */
         val PE_KEYS = listOf(
             "bass_enhancer_enable", "virtual_bass_enable",
             "ieq_enable", "selected_ieq_preset_id", "ieq_amount",
@@ -35,7 +44,7 @@ class DolbyStore(private val ctx: Context) {
             "dialog_enhancer_ducking", "headphone_virtualizer_steerer_source_distance",
         )
 
-        /** Columnas de la tabla profiles (por perfil, comunes a todas las salidas). */
+        /** Columns of the profiles table (per profile, shared by all outputs). */
         val PROF_KEYS = listOf(
             "headphone_virtualizer_mode", "advanced_headphone_virtualizer_lr_angle",
             "reverb_suppression_enable", "reverb_suppression_amount", "volume_modeler_enable",
@@ -48,14 +57,14 @@ class DolbyStore(private val ctx: Context) {
     data class State(
         val dolbyOn: Boolean,
         val activeProfile: Int,
-        /** "perfil|endpoint" -> columnas */
+        /** "profile|endpoint" -> columns */
         val pe: Map<String, Map<String, String>>,
-        /** endpoint -> columnas de afinación */
+        /** endpoint -> tuning columns */
         val tuning: Map<String, Map<String, String>>,
-        /** perfil -> ganancias del ecualizador gráfico */
+        /** profile -> graphic equalizer gains */
         val geq: Map<Int, List<Int>>,
         val geqFreqs: List<Int>,
-        /** perfil -> columnas de la tabla profiles */
+        /** profile -> columns of the profiles table */
         val prof: Map<Int, Map<String, String>> = emptyMap(),
     )
 
@@ -75,7 +84,7 @@ class DolbyStore(private val ctx: Context) {
 
     fun load(): State {
         work.delete()
-        if (!Root.readFile(DB, work)) error("No se pudo leer la base de datos de Dolby")
+        if (!Root.readFile(DB, work)) error(ctx.getString(R.string.err_read_db))
         if (!backup.exists()) work.copyTo(backup)
         open().use { db ->
             fun cfg(k: String) = db.rawQuery(
@@ -143,7 +152,7 @@ class DolbyStore(private val ctx: Context) {
         arrayOf(profile.toString())
     ).use { if (it.moveToFirst()) it.getString(0) else null }
 
-    /** Guarda en la copia (filas 'default' y 'custom') y la instala. */
+    /** Saves to the copy ('default' and 'custom' rows) and installs it. */
     fun save(s: State, restart: Boolean = true): Root.Result {
         open().use { db ->
             db.beginTransaction()
@@ -176,20 +185,20 @@ class DolbyStore(private val ctx: Context) {
         return install(work, restart)
     }
 
-    /** Reinicia Dolby para que recargue la base de datos (también reinicia el servidor de audio). */
+    /** Restarts Dolby so it reloads the database (also restarts the audio server). */
     fun restartAudio(): Root.Result = Root.run(
         "setprop ctl.restart dms-hal", "sleep 1", "killall audioserver", "echo OK"
     )
 
     fun restoreOriginal(): Root.Result {
-        if (!backup.exists()) return Root.Result(1, "No hay copia original")
+        if (!backup.exists()) return Root.Result(1, "No original backup")
         return install(backup)
     }
 
     private fun install(f: File, restart: Boolean = true): Root.Result {
         File(f.path + "-journal").delete()
-        if (!Root.writeFile(f, "$DB.new")) return Root.Result(1, "No se pudo copiar la base de datos")
-        // Sin reinicio: ya se aplicó en vivo, solo se guarda para que dure tras reiniciar el teléfono
+        if (!Root.writeFile(f, "$DB.new")) return Root.Result(1, "Could not copy the database")
+        // No restart: already applied live, only saved so it survives a phone reboot
         if (!restart) return Root.run(
             "mv -f $DB.new $DB",
             "chown media:audio $DB",

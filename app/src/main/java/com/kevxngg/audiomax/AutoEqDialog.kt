@@ -8,13 +8,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Busca tus auriculares en AutoEq y aplica su curva de corrección al ecualizador. */
+/** Search for your headphones in AutoEq and apply their correction curve to the equalizer. */
 @Composable
 fun AutoEqDialog(freqs: List<Int>, onApply: (List<Int>, String) -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
@@ -26,20 +27,20 @@ fun AutoEqDialog(freqs: List<Int>, onApply: (List<Int>, String) -> Unit, onDismi
 
     LaunchedEffect(Unit) {
         val r = withContext(Dispatchers.IO) { runCatching { AutoEq.index(ctx) } }
-        r.onSuccess { all = it }.onFailure { error = "No se pudo descargar la lista: ${it.message}" }
+        r.onSuccess { all = it }.onFailure { error = ctx.getString(R.string.autoeq_list_failed, it.message ?: "") }
     }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("AutoEQ") },
+        title = { Text(stringResource(R.string.autoeq)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Corrige la respuesta de tus auriculares con las mediciones del proyecto AutoEq.",
+                    stringResource(R.string.autoeq_desc),
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
-                    query, { query = it }, singleLine = true, label = { Text("Modelo (ej. Galaxy Buds, AirPods)") },
+                    query, { query = it }, singleLine = true, label = { Text(stringResource(R.string.autoeq_model_hint)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 when {
@@ -49,17 +50,17 @@ fun AutoEqDialog(freqs: List<Int>, onApply: (List<Int>, String) -> Unit, onDismi
                         val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
                         val list = if (words.isEmpty()) emptyList()
                         else all!!.filter { e -> words.all { e.name.lowercase().contains(it) } }.take(60)
-                        if (words.isNotEmpty() && list.isEmpty()) Text("Sin resultados", fontSize = 13.sp)
+                        if (words.isNotEmpty() && list.isEmpty()) Text(stringResource(R.string.autoeq_no_results), fontSize = 13.sp)
                         LazyColumn(Modifier.heightIn(max = 320.dp)) {
                             items(list) { e ->
                                 Column(
                                     Modifier.fillMaxWidth().clickable {
                                         busy = true
                                         scope.launch {
-                                            val r = withContext(Dispatchers.IO) { runCatching { AutoEq.curve(e, freqs) } }
+                                            val r = withContext(Dispatchers.IO) { runCatching { AutoEq.curve(ctx, e, freqs) } }
                                             busy = false
                                             r.onSuccess { onApply(it, e.name) }
-                                                .onFailure { error = "No se pudo cargar la curva: ${it.message}" }
+                                                .onFailure { error = ctx.getString(R.string.autoeq_curve_failed, it.message ?: "") }
                                         }
                                     }.padding(vertical = 10.dp)
                                 ) {
@@ -72,6 +73,6 @@ fun AutoEqDialog(freqs: List<Int>, onApply: (List<Int>, String) -> Unit, onDismi
                 }
             }
         },
-        confirmButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cerrar") } },
+        confirmButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
 }

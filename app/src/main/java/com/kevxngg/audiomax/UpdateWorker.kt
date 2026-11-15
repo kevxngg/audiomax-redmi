@@ -20,7 +20,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
-/** Revisa GitHub cada hora y avisa con una notificación cuando hay versión nueva. */
+/** Checks GitHub every hour and posts a notification when there is a new version. */
 class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result =
@@ -48,14 +48,14 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             WorkManager.getInstance(ctx).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, req)
         }
 
-        /** Con root: permiso de notificaciones y sin restricciones de batería para las revisiones. */
+        /** With root: notification permission and no battery restrictions for the checks. */
         fun prepare(ctx: Context) {
             val p = ctx.packageName
             val cmds = mutableListOf(
                 "cmd deviceidle whitelist +$p",
                 "appops set $p RUN_IN_BACKGROUND allow",
                 "appops set $p RUN_ANY_IN_BACKGROUND allow",
-                // HyperOS/MIUI: inicio automático (si no, bloquea revisiones, notificaciones y el botón rápido)
+                // HyperOS/MIUI: autostart (otherwise it blocks checks, notifications and the Quick Settings tile)
                 "appops set $p 10008 allow",
             )
             if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
@@ -66,7 +66,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
 
         private fun channel(ctx: Context) {
             ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL, "Actualizaciones", NotificationManager.IMPORTANCE_HIGH)
+                NotificationChannel(CHANNEL, ctx.getString(R.string.updates), NotificationManager.IMPORTANCE_HIGH)
             )
         }
 
@@ -74,7 +74,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             channel(ctx)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Descargando actualización…")
+                .setContentTitle(ctx.getString(R.string.notif_downloading))
                 .setProgress(0, 0, true)
                 .setOngoing(true)
                 .build()
@@ -89,8 +89,8 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             )
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Hay una nueva versión")
-                .setContentText("No se pudo instalar automáticamente. Toca para descargarla.")
+                .setContentTitle(ctx.getString(R.string.update_available_title))
+                .setContentText(ctx.getString(R.string.notif_failed_text))
                 .setContentIntent(browser)
                 .setAutoCancel(true)
                 .build()
@@ -114,14 +114,14 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             )
             val firstLines = info.notes.lines().map { it.trim() }.filter { it.startsWith("- ") }
                 .take(3).joinToString("\n") { "• " + it.drop(2) }
-            val text = "Versión ${info.label} disponible"
+            val text = ctx.getString(R.string.notif_version_available, info.label)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Hay una nueva versión de Dolby Atmos")
+                .setContentTitle(ctx.getString(R.string.notif_new_version_title))
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text + if (firstLines.isNotEmpty()) "\n" + firstLines else ""))
                 .setContentIntent(open)
-                .addAction(0, "Actualizar ahora", install)
+                .addAction(0, ctx.getString(R.string.update_now), install)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .build()
@@ -133,7 +133,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
     }
 }
 
-/** Botón "Actualizar ahora" de la notificación: descarga e instala sin abrir la app. */
+/** The notification's "Update now" button: downloads and installs without opening the app. */
 class InstallUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val app = ctx.applicationContext
@@ -155,7 +155,7 @@ class InstallUpdateReceiver : BroadcastReceiver() {
     }
 }
 
-/** Reprograma la revisión al encender el teléfono o tras actualizar la app. */
+/** Reschedules the check when the phone boots or after the app is updated. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         UpdateWorker.schedule(ctx.applicationContext)
