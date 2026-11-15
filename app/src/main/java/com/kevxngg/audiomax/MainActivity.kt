@@ -126,7 +126,7 @@ fun App(store: DolbyStore) {
         }
     ) { pad ->
         Column(
-            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
+            Modifier.padding(pad).fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
