@@ -2,25 +2,26 @@ package com.kevxngg.audiomax
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
-import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,59 +29,68 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val store = DolbyStore(this)
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Color(0xFF3DDC97),
-                    secondary = Color(0xFF5AB0FF),
-                    background = Color(0xFF0B111B),
-                    surface = Color(0xFF121A27),
-                    surfaceVariant = Color(0xFF1A2434),
-                )
-            ) {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    App(store)
-                }
+            AppTheme {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) { App(store) }
             }
         }
     }
 }
 
-private fun db(v: Int) = String.format(Locale.US, "%+.1f dB", v / 16f)
+private enum class Screen { MAIN, EQ }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(store: DolbyStore) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
     var state by remember { mutableStateOf<DolbyStore.State?>(null) }
     var errMsg by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
+    var applying by remember { mutableStateOf(false) }
     var profile by remember { mutableIntStateOf(0) }
     var endpoint by remember { mutableStateOf("speaker") }
+    var screen by remember { mutableStateOf(Screen.MAIN) }
+    var confirmReset by remember { mutableStateOf(false) }
 
     fun reload() {
         scope.launch {
-            busy = true
             val r = withContext(Dispatchers.IO) {
                 runCatching {
-                    if (!Root.available()) error("Sin root: activa KernelSU/dfroot y da permiso a AudioMax")
+                    if (!Root.available()) error("Sin root: activa KernelSU/dfroot y concede root a AudioMax")
                     store.load()
                 }
             }
             r.onSuccess { state = it; profile = it.activeProfile.coerceIn(0, 3); errMsg = null }
                 .onFailure { errMsg = it.message }
-            busy = false
         }
     }
-    val ctx = androidx.compose.ui.platform.LocalContext.current
+
+    // Aplicado automático: espera a que dejes de tocar y aplica una sola vez
+    var pending by remember { mutableStateOf<Job?>(null) }
+    fun commit() {
+        pending?.cancel()
+        pending = scope.launch {
+            delay(700)
+            val s = state ?: return@launch
+            applying = true
+            val r = withContext(Dispatchers.IO) { runCatching { store.save(s.copy(activeProfile = profile)) } }
+            applying = false
+            if (r.getOrNull()?.out?.contains("OK") != true) {
+                snack.showSnackbar("No se pudo aplicar: ${r.exceptionOrNull()?.message ?: r.getOrNull()?.out}")
+                reload()
+            }
+        }
+    }
+
+    // Actualizaciones (igual que Monitor)
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
-    var updateMsg by remember { mutableStateOf<String?>(null) }
     fun checkUpdate(manual: Boolean) {
         scope.launch {
             val info = withContext(Dispatchers.IO) { Updater.fetch(ctx) }
             when {
-                info == null -> if (manual) updateMsg = "No se pudo consultar GitHub"
+                info == null -> if (manual) snack.showSnackbar("No se pudo consultar GitHub")
                 Updater.isOffered(ctx, info, ignoreSkipped = manual) && (manual || !Updater.isSnoozed(info.build)) -> update = info
-                else -> if (manual) updateMsg = "Tienes la última versión"
+                else -> if (manual) snack.showSnackbar("Tienes la última versión")
             }
         }
     }
@@ -90,259 +100,229 @@ fun App(store: DolbyStore) {
         withContext(Dispatchers.IO) { runCatching { UpdateWorker.prepare(ctx) } }
         checkUpdate(false)
     }
-    LaunchedEffect(updateMsg) { updateMsg?.let { snack.showSnackbar(it); updateMsg = null } }
-    update?.let { info ->
-        UpdateDialog(info, required = Updater.isRequired(ctx, info)) { update = null }
-    }
+    update?.let { info -> UpdateDialog(info, required = Updater.isRequired(ctx, info)) { update = null } }
 
-    fun applyAction(action: suspend () -> Root.Result, msg: String) {
-        scope.launch {
-            busy = true
-            val r = withContext(Dispatchers.IO) { runCatching { action() } }
-            val ok = r.getOrNull()?.out?.contains("OK") == true
-            busy = false
-            reload()
-            snack.showSnackbar(if (ok) msg else "Error: ${r.exceptionOrNull()?.message ?: r.getOrNull()?.out}")
-        }
-    }
+    BackHandler(screen == Screen.EQ) { screen = Screen.MAIN }
 
+    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
+        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snack) },
-        bottomBar = {
-            val s = state
-            if (s != null) Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { applyAction({ store.restoreOriginal() }, "Restaurado al estado inicial") },
-                    enabled = !busy, modifier = Modifier.weight(1f)
-                ) { Text("Restaurar") }
-                Button(
-                    onClick = { applyAction({ store.save(s.copy(activeProfile = profile)) }, "Aplicado ✓") },
-                    enabled = !busy, modifier = Modifier.weight(1f)
-                ) { Text(if (busy) "Aplicando…" else "Aplicar") }
+        topBar = {
+            Column {
+                LargeTopAppBar(
+                    title = { Text(if (screen == Screen.EQ) "Ecualizador" else "Dolby Atmos") },
+                    navigationIcon = {
+                        if (screen == Screen.EQ) IconButton(onClick = { screen = Screen.MAIN }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás")
+                        }
+                    },
+                    scrollBehavior = scroll,
+                    colors = TopAppBarDefaults.largeTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                )
+                if (applying) LinearProgressIndicator(Modifier.fillMaxWidth())
+                else Spacer(Modifier.height(4.dp))
             }
-        }
+        },
     ) { pad ->
         Column(
-            Modifier.padding(pad).fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
         ) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "AudioMax", fontSize = 28.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Control del Dolby nativo · Redmi Note 14 Pro 4G",
-                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
-                fontSize = 13.sp, color = Color.Gray
-            )
-
             errMsg?.let {
-                Card { Text(it, Modifier.padding(16.dp), color = Color(0xFFFF7A7A)) }
-                Button(onClick = { reload() }, Modifier.fillMaxWidth()) { Text("Reintentar") }
+                Column(Modifier.padding(16.dp)) {
+                    PrefGroup { FooterText(it) }
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { reload() }, Modifier.fillMaxWidth()) { Text("Reintentar") }
+                }
             }
             val s = state ?: run {
-                if (errMsg == null) Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                if (errMsg == null) Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) {
                     CircularProgressIndicator()
                 }
                 return@Column
             }
 
-            fun setPe(k: String, v: String) {
-                val key = "$profile|$endpoint"
+            val key = "$profile|$endpoint"
+            val pe = s.pe[key] ?: emptyMap()
+            fun b(k: String) = pe[k] == "1"
+            fun i(k: String) = pe[k]?.toIntOrNull() ?: 0
+            fun setPe(vararg kv: Pair<String, String>) {
                 val st = state ?: return
                 val cur = st.pe[key] ?: return
-                state = st.copy(pe = st.pe + (key to (cur + (k to v))))
+                state = st.copy(pe = st.pe + (key to (cur + kv)))
             }
             fun setTun(k: String, v: String) {
                 val st = state ?: return
                 val cur = st.tuning[endpoint] ?: return
                 state = st.copy(tuning = st.tuning + (endpoint to (cur + (k to v))))
             }
-            val pe = s.pe["$profile|$endpoint"] ?: emptyMap()
-            fun b(k: String) = pe[k] == "1"
-            fun i(k: String) = pe[k]?.toIntOrNull() ?: 0
+            fun bool(v: Boolean) = if (v) "1" else "0"
+            val on = s.dolbyOn
             val tun = s.tuning[endpoint] ?: emptyMap()
+            val gains = s.geq[profile]
 
-            Section("Dolby") {
-                SwitchRow("Dolby activado", s.dolbyOn) { on -> state = state?.copy(dolbyOn = on) }
-                Label("Perfil activo (y el que editas)")
-                Chips(DolbyStore.PROFILES, profile) { profile = it }
-                Label("Salida que editas")
-                Chips(DolbyStore.ENDPOINTS, endpoint) { endpoint = it }
+            if (screen == Screen.EQ) {
+                if (gains != null) EqScreen(
+                    gains = gains, freqs = s.geqFreqs, enabled = on && b("graphic_equalizer_enable"),
+                    onEnabled = { setPe("graphic_equalizer_enable" to bool(it)); commit() },
+                    onChange = { g -> state?.let { st -> state = st.copy(geq = st.geq + (profile to g)) } },
+                    onDone = { commit() },
+                )
+                Spacer(Modifier.height(24.dp))
+                return@Column
             }
 
-            Section("Bajo") {
-                SwitchRow("Realce de bajos", b("bass_enhancer_enable")) {
-                    setPe("bass_enhancer_enable", if (it) "1" else "0")
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                MainSwitchBar("Usar Dolby Atmos", on) { v ->
+                    state = state?.copy(dolbyOn = v); commit()
                 }
-                val maxBoost = if (endpoint == "speaker") 192 else 288
-                ValueSlider(
-                    "Intensidad (toda la salida)",
-                    tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0, 0, maxBoost, 8, ::db
-                ) { setTun("bass_enhancer_boost", it.toString()) }
-                ValueSlider(
-                    "Hasta qué frecuencia",
-                    tun["bass_enhancer_cutoff_frequency"]?.toIntOrNull() ?: 160, 60, 300, 10,
-                    { "$it Hz" }
-                ) { setTun("bass_enhancer_cutoff_frequency", it.toString()) }
-                if (endpoint == "speaker") SwitchRow("Bajo virtual (armónicos)", b("virtual_bass_enable")) {
-                    setPe("virtual_bass_enable", if (it) "1" else "0")
-                }
-                if (endpoint == "speaker") Hint("Altavoz limitado a +12 dB para no dañarlo.")
-            }
 
-            Section("Ecualizador inteligente") {
-                SwitchRow("Activado", b("ieq_enable")) { setPe("ieq_enable", if (it) "1" else "0") }
-                Chips(DolbyStore.IEQ_PRESETS, i("selected_ieq_preset_id")) {
-                    setPe("selected_ieq_preset_id", it.toString())
-                }
-                ValueSlider("Cantidad", i("ieq_amount"), 0, 16, 1, { "$it" }) {
-                    setPe("ieq_amount", it.toString())
-                }
-            }
-
-            Section("Ecualizador de 20 bandas") {
-                SwitchRow("Activado", b("graphic_equalizer_enable")) {
-                    setPe("graphic_equalizer_enable", if (it) "1" else "0")
-                }
-                Hint("Común a todas las salidas de este perfil.")
-                val gains = s.geq[profile]
-                if (gains == null) Hint("Este perfil no tiene ecualizador.") else {
-                    gains.forEachIndexed { idx, g ->
-                        val f = s.geqFreqs.getOrNull(idx) ?: 0
-                        val name = if (f >= 1000) String.format(Locale.US, "%.1fk", f / 1000f) else "$f"
-                        EqRow(name, g) { v ->
-                            val st = state ?: return@EqRow
-                            val ng = (st.geq[profile] ?: gains).toMutableList().also { it[idx] = v }
-                            state = st.copy(geq = st.geq + (profile to ng))
+                PrefGroup {
+                    ListPref("Perfil", DolbyStore.PROFILES, profile, enabled = on) { profile = it; commit() }
+                    PrefDivider()
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+                        Text(
+                            "Ajustes para", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            val eps = listOf("speaker" to "Altavoz", "headphone" to "Auriculares")
+                            eps.forEachIndexed { idx, (id, name) ->
+                                SegmentedButton(
+                                    selected = endpoint == id, onClick = { endpoint = id },
+                                    shape = SegmentedButtonDefaults.itemShape(idx, eps.size),
+                                ) { Text(name) }
+                            }
                         }
+                        if (endpoint == "headphone") Text(
+                            "Incluye cable, Bluetooth y USB-C",
+                            Modifier.padding(top = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
-                    TextButton(onClick = {
-                        state = s.copy(geq = s.geq + (profile to gains.map { 0 }))
-                    }, Modifier.fillMaxWidth()) { Text("Poner plano") }
                 }
-            }
 
-            Section("Envolvente y diálogos") {
-                SwitchRow("Sonido envolvente", b("virtualizer_enable")) {
-                    setPe("virtualizer_enable", if (it) "1" else "0")
+                PrefGroup("Sonido") {
+                    NavPref(
+                        "Ecualizador",
+                        when {
+                            gains == null -> "No disponible en este perfil"
+                            !b("graphic_equalizer_enable") -> "Desactivado"
+                            else -> EqPresets.nameOf(gains)
+                        },
+                        enabled = on && gains != null,
+                    ) { screen = Screen.EQ }
+                    PrefDivider()
+                    val ieq = if (b("ieq_enable")) i("selected_ieq_preset_id") else 0
+                    ListPref(
+                        "Ecualizador inteligente",
+                        listOf(0 to "Desactivado") + DolbyStore.IEQ_PRESETS, ieq, enabled = on
+                    ) { v ->
+                        if (v == 0) setPe("ieq_enable" to "0")
+                        else setPe("ieq_enable" to "1", "selected_ieq_preset_id" to v.toString())
+                        commit()
+                    }
+                    if (ieq != 0) SliderPref(
+                        "Intensidad", i("ieq_amount"), 0, 16, 1, on, { "$it" },
+                        { setPe("ieq_amount" to it.toString()) }, { commit() }
+                    )
                 }
-                ValueSlider("Amplitud envolvente", i("surround_boost"), 0, 96, 4, ::db) {
-                    setPe("surround_boost", it.toString())
-                }
-                SwitchRow("Realce de diálogos", b("dialog_enhancer_enable")) {
-                    setPe("dialog_enhancer_enable", if (it) "1" else "0")
-                }
-                ValueSlider("Intensidad diálogos", i("dialog_enhancer_amount"), 0, 16, 1, { "$it" }) {
-                    setPe("dialog_enhancer_amount", it.toString())
-                }
-            }
 
-            Section("Volumen") {
-                ValueSlider("Volumen máximo extra", i("volmax_boost"), 0, 144, 4, ::db) {
-                    setPe("volmax_boost", it.toString())
+                PrefGroup("Graves") {
+                    SwitchPref(
+                        "Realce de bajos", "Refuerza los graves sin saturar",
+                        b("bass_enhancer_enable"), on
+                    ) { setPe("bass_enhancer_enable" to bool(it)); commit() }
+                    val bassOn = on && b("bass_enhancer_enable")
+                    SliderPref(
+                        "Nivel de bajos", tun["bass_enhancer_boost"]?.toIntOrNull() ?: 0,
+                        0, if (endpoint == "speaker") 192 else 288, 8, bassOn, ::db,
+                        { setTun("bass_enhancer_boost", it.toString()) }, { commit() }
+                    )
+                    SliderPref(
+                        "Frecuencia de corte", tun["bass_enhancer_cutoff_frequency"]?.toIntOrNull() ?: 160,
+                        60, 300, 10, bassOn, { "$it Hz" },
+                        { setTun("bass_enhancer_cutoff_frequency", it.toString()) }, { commit() }
+                    )
+                    if (endpoint == "speaker") {
+                        PrefDivider()
+                        SwitchPref(
+                            "Bajo virtual", "Hace que los graves se perciban en altavoces pequeños",
+                            b("virtual_bass_enable"), on
+                        ) { setPe("virtual_bass_enable" to bool(it)); commit() }
+                    }
                 }
-                SwitchRow("Nivelador (todo suena parejo)", b("volume_leveler_enable")) {
-                    setPe("volume_leveler_enable", if (it) "1" else "0")
-                }
-                ValueSlider("Cantidad nivelador", i("volume_leveler_amount"), 0, 10, 1, { "$it" }) {
-                    setPe("volume_leveler_amount", it.toString())
-                }
-            }
 
-            Hint("Al aplicar, el audio se corta un segundo mientras Dolby se reinicia.")
-            TextButton(onClick = { checkUpdate(true) }, Modifier.fillMaxWidth()) {
-                Text("Buscar actualizaciones · v${Updater.currentVersion(ctx)}")
+                PrefGroup("Espacio y voz") {
+                    SwitchPref("Sonido envolvente", "Escena más amplia y envolvente", b("virtualizer_enable"), on) {
+                        setPe("virtualizer_enable" to bool(it)); commit()
+                    }
+                    SliderPref(
+                        "Amplitud estéreo", i("surround_boost"), 0, 96, 4, on && b("virtualizer_enable"), ::db,
+                        { setPe("surround_boost" to it.toString()) }, { commit() }
+                    )
+                    PrefDivider()
+                    SwitchPref("Realce de diálogos", "Voces más claras en vídeos y películas", b("dialog_enhancer_enable"), on) {
+                        setPe("dialog_enhancer_enable" to bool(it)); commit()
+                    }
+                    if (b("dialog_enhancer_enable")) SliderPref(
+                        "Intensidad", i("dialog_enhancer_amount"), 0, 16, 1, on, { "$it" },
+                        { setPe("dialog_enhancer_amount" to it.toString()) }, { commit() }
+                    )
+                }
+
+                PrefGroup("Volumen") {
+                    SwitchPref("Nivelador de volumen", "Mantiene un volumen parejo entre canciones y apps", b("volume_leveler_enable"), on) {
+                        setPe("volume_leveler_enable" to bool(it)); commit()
+                    }
+                    if (b("volume_leveler_enable")) SliderPref(
+                        "Intensidad", i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
+                        { setPe("volume_leveler_amount" to it.toString()) }, { commit() }
+                    )
+                    PrefDivider()
+                    SliderPref(
+                        "Volumen máximo extra", i("volmax_boost"), 0, 144, 4, on, ::db,
+                        { setPe("volmax_boost" to it.toString()) }, { commit() }
+                    )
+                }
+
+                PrefGroup("General") {
+                    NavPref("Restablecer valores", "Vuelve a como estaba al abrir AudioMax por primera vez") {
+                        confirmReset = true
+                    }
+                    PrefDivider()
+                    NavPref("Actualizaciones", "Versión ${Updater.currentVersion(ctx)} · Buscar ahora") {
+                        checkUpdate(true)
+                    }
+                }
+                FooterText("Los cambios se aplican solos. El audio se corta un instante mientras Dolby se reinicia.")
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
-}
 
-@Composable
-fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                title, fontWeight = FontWeight.SemiBold, fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-            )
-            content()
-        }
-    }
-}
-
-@Composable
-fun Label(t: String) = Text(t, fontSize = 13.sp, color = Color.Gray)
-
-@Composable
-fun Hint(t: String) = Text(
-    t, fontSize = 12.sp, color = Color.Gray,
-    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-)
-
-@Composable
-fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun <T> Chips(items: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
-    FlowRow(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-    ) {
-        items.forEach { (id, name) ->
-            FilterChip(selected = id == selected, onClick = { onSelect(id) }, label = { Text(name) })
-        }
-    }
-}
-
-@Composable
-fun ValueSlider(
-    label: String, value: Int, min: Int, max: Int, step: Int,
-    fmt: (Int) -> String, onChange: (Int) -> Unit
-) {
-    Column {
-        Row(Modifier.fillMaxWidth()) {
-            Text(label, Modifier.weight(1f), fontSize = 14.sp)
-            Text(fmt(value), fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-        }
-        Slider(
-            value = value.coerceIn(min, max).toFloat(),
-            onValueChange = { onChange((it / step).roundToInt() * step) },
-            valueRange = min.toFloat()..max.toFloat(),
-        )
-    }
-}
-
-@Composable
-fun EqRow(freq: String, gain: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(freq, Modifier.width(44.dp), fontSize = 12.sp, color = Color.Gray)
-        Slider(
-            value = gain.coerceIn(-192, 192).toFloat(),
-            onValueChange = { onChange((it / 8).roundToInt() * 8) },
-            valueRange = -192f..192f,
-            modifier = Modifier.weight(1f).height(32.dp)
-        )
-        Text(
-            String.format(Locale.US, "%+.1f", gain / 16f), Modifier.width(44.dp),
-            fontSize = 12.sp, textAlign = TextAlign.End
-        )
-    }
+    if (confirmReset) AlertDialog(
+        onDismissRequest = { confirmReset = false },
+        title = { Text("¿Restablecer valores?") },
+        text = { Text("Dolby vuelve a la configuración que tenía la primera vez que abriste AudioMax.") },
+        confirmButton = {
+            TextButton(onClick = {
+                confirmReset = false
+                scope.launch {
+                    applying = true
+                    val r = withContext(Dispatchers.IO) { runCatching { store.restoreOriginal() } }
+                    applying = false
+                    snack.showSnackbar(if (r.getOrNull()?.out?.contains("OK") == true) "Valores restablecidos" else "No se pudo restablecer")
+                    reload()
+                }
+            }) { Text("Restablecer") }
+        },
+        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancelar") } },
+    )
 }
