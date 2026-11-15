@@ -55,6 +55,8 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 "cmd deviceidle whitelist +$p",
                 "appops set $p RUN_IN_BACKGROUND allow",
                 "appops set $p RUN_ANY_IN_BACKGROUND allow",
+                // HyperOS/MIUI: inicio automático (si no, bloquea revisiones, notificaciones y el botón rápido)
+                "appops set $p 10008 allow",
             )
             if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED

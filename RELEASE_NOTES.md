@@ -10,3 +10,4 @@
 
 ## Nota
 - El nivel y la frecuencia de los bajos, la amplitud, las intensidades, el volumen extra y la protección auditiva siguen necesitando un reinicio breve del audio.
+- La app se da sola el permiso de inicio automático de HyperOS, que bloqueaba las revisiones de actualizaciones en segundo plano.
