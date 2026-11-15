@@ -12,7 +12,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.kevxngg.audiomax"
+        applicationId = "com.dolbyatmos.obsidian"
         minSdk = 30
         targetSdk = 35
         versionCode = run

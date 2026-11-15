@@ -1,13 +1,10 @@
 ## Novedades
-- Cambios en vivo: encender o apagar Dolby, el perfil, los interruptores (bajos, envolvente, nivelador, diálogos), el ecualizador inteligente y el ecualizador se aplican al momento, sin cortar la música.
-- El ecualizador suena mientras arrastras los puntos de la curva.
-- Presets propios: guarda tu curva con un nombre y bórrala con la X.
-- Nuevos presets: Electrónica, Rock, Pop, Clásica y Podcast.
-- Tono rápido: graves, medios y agudos que se suman a la curva.
-- Protección auditiva de Dolby.
-- Botón "Dolby Atmos" en los ajustes rápidos para encenderlo o apagarlo.
-- Al abrir la app se elige sola la salida que estás usando (altavoz o auriculares).
+- Ahora se llama Dolby Atmos, con icono nuevo.
+- Los interruptores, el perfil, el ecualizador y el ecualizador inteligente se aplican de verdad en vivo: ya no reinician el audio.
+- Si el audio se reinicia por otra causa, el control en vivo se recupera solo.
+- La app sigue a la salida que estás usando: al conectar auriculares cambia de pestaña y vuelve a aplicar tus ajustes.
+- Los ajustes que necesitan reiniciar Dolby están en "Avanzado" y solo se aplican con su botón, para que la música no se corte sin avisar.
+- Sincronización silenciosa: Dolby se refresca solo cuando no suena nada, para que tus cambios no se pierdan al cambiar de salida.
 
 ## Nota
-- El nivel y la frecuencia de los bajos, la amplitud, las intensidades, el volumen extra y la protección auditiva siguen necesitando un reinicio breve del audio.
-- La app se da sola el permiso de inicio automático de HyperOS, que bloqueaba las revisiones de actualizaciones en segundo plano.
+- Cambia el nombre interno de la app (com.dolbyatmos.obsidian). Las actualizaciones siguen llegando igual.

@@ -117,7 +117,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             val text = "Versión ${info.label} disponible"
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Hay una nueva versión de AudioMax")
+                .setContentTitle("Hay una nueva versión de Dolby Atmos")
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text + if (firstLines.isNotEmpty()) "\n" + firstLines else ""))
                 .setContentIntent(open)

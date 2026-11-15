@@ -148,6 +148,11 @@ class DolbyStore(private val ctx: Context) {
         return install(work, restart)
     }
 
+    /** Reinicia Dolby para que recargue la base de datos (también reinicia el servidor de audio). */
+    fun restartAudio(): Root.Result = Root.run(
+        "setprop ctl.restart dms-hal", "sleep 1", "killall audioserver", "echo OK"
+    )
+
     fun restoreOriginal(): Root.Result {
         if (!backup.exists()) return Root.Result(1, "No hay copia original")
         return install(backup)

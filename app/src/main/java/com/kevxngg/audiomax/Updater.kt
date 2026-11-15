@@ -144,7 +144,7 @@ object Updater {
         file.delete()
         Root.run(
             "chmod 644 $TMP",
-            "setsid sh -c 'pm install -r $TMP && am start -n ${ctx.packageName}/.MainActivity; rm -f $TMP' " +
+            "setsid sh -c 'pm install -r $TMP && am start -n ${ctx.packageName}/${MainActivity::class.java.name}; rm -f $TMP' " +
                 "</dev/null >/dev/null 2>&1 &"
         )
         return true

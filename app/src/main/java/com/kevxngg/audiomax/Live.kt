@@ -12,20 +12,24 @@ import android.util.Log
 object Live {
     private const val TAG = "AudioMaxLive"
 
-    /** Columnas que se pueden aplicar en vivo. El resto necesita reiniciar Dolby. */
+    /** Columnas que se aplican en vivo. El resto necesita reiniciar Dolby (sección Avanzado). */
     val KEYS = setOf(
         "dolbyOn", "profile", "geq", "graphic_equalizer_enable",
         "bass_enhancer_enable", "virtualizer_enable", "volume_leveler_enable",
         "ieq_enable", "selected_ieq_preset_id", "dialog_enhancer_enable",
     )
 
+    private val PROFILE_KEYS = KEYS - setOf("dolbyOn", "profile")
+
     private var fx: DolbyEffect? = null
 
+    /** Devuelve un efecto vivo; si el audio se reinició, lo vuelve a abrir. */
     @Synchronized
     fun effect(): DolbyEffect? {
-        val cur = fx
-        if (cur != null && cur.hasControl) return cur
-        cur?.release()
+        fx?.let { f ->
+            if (f.hasControl && runCatching { f.dsOn }.isSuccess) return f
+            f.release()
+        }
         fx = runCatching { DolbyEffect.open(100) }.onFailure { Log.w(TAG, "open: ${it.message}") }.getOrNull()
         return fx
     }
@@ -49,48 +53,53 @@ object Live {
         return if (am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in hp }) "headphone" else "speaker"
     }
 
-    /**
-     * Aplica en vivo las claves cambiadas. Devuelve false si algo no se pudo aplicar
-     * (entonces hay que usar el reinicio).
-     */
+    /** Aplica en vivo las claves cambiadas (reintenta una vez reabriendo el efecto). */
     @Synchronized
-    fun apply(ctx: Context, s: DolbyStore.State, profile: Int, endpoint: String, keys: Set<String>): Boolean {
-        if (!keys.all { it in KEYS }) return false
-        val f = effect() ?: return false
-        return try {
-            if ("dolbyOn" in keys) f.dsOn = s.dolbyOn
-            if ("profile" in keys) f.profile = profile
-            val rest = keys - setOf("dolbyOn", "profile")
-            if (rest.isNotEmpty()) {
-                // Los parámetros del perfil afectan a la salida activa; otra salida necesita reinicio
-                if (endpoint != activeEndpoint(ctx)) return false
-                val pe = s.pe["$profile|$endpoint"] ?: return false
-                fun on(k: String) = pe[k] == "1"
-                for (k in rest) when (k) {
-                    "bass_enhancer_enable" -> f.set(DolbyEffect.Param.BASS_ENHANCER_ENABLE, on(k), profile)
-                    "virtualizer_enable" -> f.set(
-                        if (endpoint == "headphone") DolbyEffect.Param.HEADPHONE_VIRTUALIZER
-                        else DolbyEffect.Param.SPEAKER_VIRTUALIZER, on(k), profile
-                    )
-                    "volume_leveler_enable" -> f.set(DolbyEffect.Param.VOLUME_LEVELER_ENABLE, on(k), profile)
-                    "ieq_enable", "selected_ieq_preset_id" -> f.set(
-                        DolbyEffect.Param.IEQ_PRESET,
-                        if (on("ieq_enable")) pe["selected_ieq_preset_id"]?.toIntOrNull() ?: 0 else 0, profile
-                    )
-                    "dialog_enhancer_enable" -> f.set(DolbyEffect.Param.DIALOGUE_ENHANCER_ENABLE, on(k), profile)
-                    "geq", "graphic_equalizer_enable" -> {
-                        val g = s.geq[profile] ?: List(20) { 0 }
-                        f.set(
-                            DolbyEffect.Param.GEQ_BAND_GAINS,
-                            if (on("graphic_equalizer_enable")) g.toIntArray() else IntArray(g.size), profile
-                        )
-                    }
-                }
+    fun apply(s: DolbyStore.State, profile: Int, endpoint: String, keys: Set<String>): Boolean {
+        val k = keys.filter { it in KEYS }.toSet()
+        if (k.isEmpty()) return true
+        repeat(2) {
+            val f = effect() ?: return false
+            try {
+                push(f, s, profile, endpoint, k)
+                return true
+            } catch (e: Exception) {
+                Log.w(TAG, "apply: ${e.message}")
+                fx?.release(); fx = null
             }
-            true
-        } catch (e: Exception) {
-            Log.w(TAG, "apply: ${e.message}")
-            false
+        }
+        return false
+    }
+
+    /** Vuelve a mandar todo (al cambiar de salida, Dolby recarga sus valores antiguos). */
+    fun applyAll(s: DolbyStore.State, profile: Int, endpoint: String) =
+        apply(s, profile, endpoint, setOf("dolbyOn") + PROFILE_KEYS)
+
+    private fun push(f: DolbyEffect, s: DolbyStore.State, profile: Int, endpoint: String, keys: Set<String>) {
+        if ("dolbyOn" in keys) f.dsOn = s.dolbyOn
+        if ("profile" in keys) f.profile = profile
+        val pe = s.pe["$profile|$endpoint"] ?: return
+        fun on(c: String) = pe[c] == "1"
+        val done = mutableSetOf<String>()
+        for (c in keys) when (c) {
+            "bass_enhancer_enable" -> f.set(DolbyEffect.Param.BASS_ENHANCER_ENABLE, on(c), profile)
+            "virtualizer_enable" -> f.set(
+                if (endpoint == "headphone") DolbyEffect.Param.HEADPHONE_VIRTUALIZER
+                else DolbyEffect.Param.SPEAKER_VIRTUALIZER, on(c), profile
+            )
+            "volume_leveler_enable" -> f.set(DolbyEffect.Param.VOLUME_LEVELER_ENABLE, on(c), profile)
+            "dialog_enhancer_enable" -> f.set(DolbyEffect.Param.DIALOGUE_ENHANCER_ENABLE, on(c), profile)
+            "ieq_enable", "selected_ieq_preset_id" -> if (done.add("ieq")) f.set(
+                DolbyEffect.Param.IEQ_PRESET,
+                if (on("ieq_enable")) pe["selected_ieq_preset_id"]?.toIntOrNull() ?: 0 else 0, profile
+            )
+            "geq", "graphic_equalizer_enable" -> if (done.add("geq")) {
+                val g = s.geq[profile] ?: List(20) { 0 }
+                f.set(
+                    DolbyEffect.Param.GEQ_BAND_GAINS,
+                    if (on("graphic_equalizer_enable")) g.toIntArray() else IntArray(g.size), profile
+                )
+            }
         }
     }
 }
