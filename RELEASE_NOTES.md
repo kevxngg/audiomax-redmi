@@ -1,7 +1,5 @@
-## Dolby Atmos 1.2
-Sound audit: every option was measured on the phone by capturing the audio after Dolby.
-
-- **English and Spanish:** the app now follows your system language.
-- **Removed options that don't change the sound:** virtualizer width, angle and distance, background ducking, virtual bass, Dolby volume max, hearing protection, smart leveler, surround compressor and volume modeler.
-- **Surround virtualizer and adaptive virtualizer** only show with headphones (they do nothing on the speaker).
-- **Still here, because they work:** equalizer, extra gain, intelligent equalizer and amount, bass enhancer, bass level and type, internal bass boost, surround virtualizer and mode, dialogue enhancer and amount, volume leveler and amount, adaptive equalizer, and reverb suppression (subtle).
+## Dolby Atmos 1.3
+- **Settings that stick:** a background service reapplies your settings when music starts or you switch between speaker and headphones, even with the app closed. It starts with the phone and can be turned off in General.
+- **No more volume dropping mid-song:** raising extra gain or bass level turns off the volume leveler, which was pulling the volume back down.
+- **High fidelity mode:** one tap turns off what compresses or colors the music in the profile (leveler, intelligent equalizer, dialogue enhancer, reverb suppression and adaptive features) and keeps your equalizer, bass and surround.
+- A note under the volume leveler explains how it changes the volume.

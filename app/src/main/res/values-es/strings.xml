@@ -162,4 +162,14 @@
     <string name="notif_failed_text">No se pudo instalar automáticamente. Toca para descargarla.</string>
     <string name="notif_new_version_title">Hay una nueva versión de Dolby Atmos</string>
     <string name="notif_version_available">Versión %1$s disponible</string>
+    <string name="keeper_channel">Mantener ajustes activos</string>
+    <string name="keeper_title">Dolby Atmos activo</string>
+    <string name="keeper_text">Manteniendo tus ajustes al cambiar de salida</string>
+    <string name="keeper_pref">Mantener ajustes siempre</string>
+    <string name="keeper_pref_summary">Vuelve a aplicar tus ajustes cuando empieza la música o cambias entre altavoz y auriculares, aunque la app esté cerrada</string>
+    <string name="hifi">Modo alta fidelidad</string>
+    <string name="hifi_summary">Apaga lo que comprime o colorea la música en este perfil: nivelador, ecualizador inteligente, realce de diálogos, supresión de reverberación y funciones adaptativas. Respeta tu ecualizador, graves y sonido envolvente.</string>
+    <string name="hifi_done">Modo alta fidelidad aplicado a este perfil</string>
+    <string name="leveler_auto_off">Nivelador de volumen apagado para que no vuelva a bajar el volumen</string>
+    <string name="leveler_warning">El nivelador sube y baja el volumen solo mientras suena la música. Apágalo si notas que el volumen baja después de empezar una canción.</string>
 </resources>

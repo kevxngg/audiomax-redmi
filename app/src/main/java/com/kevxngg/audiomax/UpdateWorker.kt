@@ -159,5 +159,6 @@ class InstallUpdateReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         UpdateWorker.schedule(ctx.applicationContext)
+        KeeperService.start(ctx.applicationContext)
     }
 }

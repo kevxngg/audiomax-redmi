@@ -66,6 +66,7 @@ fun App(store: DolbyStore) {
     val dirty = remember { mutableSetOf<String>() }
     val userPresets = remember { UserPresets(ctx) }
     var presets by remember { mutableStateOf(userPresets.all()) }
+    var keeperOn by remember { mutableStateOf(KeeperService.enabled(ctx)) }
 
     fun reload() {
         scope.launch {
@@ -164,6 +165,7 @@ fun App(store: DolbyStore) {
     }
     LaunchedEffect(Unit) {
         reload()
+        KeeperService.start(ctx)
         UpdateWorker.schedule(ctx)
         withContext(Dispatchers.IO) { runCatching { UpdateWorker.prepare(ctx) } }
         checkUpdate(false)
@@ -263,6 +265,24 @@ fun App(store: DolbyStore) {
                     }
                 }
             }
+            /** Extra gain or bass on top of the leveler makes the volume rise and then fall back: turn the leveler off. */
+            fun levelerOffForGain(v: Int) {
+                if (v > 0 && b("volume_leveler_enable")) {
+                    change("volume_leveler_enable" to "0", now = false)
+                    scope.launch { snack.showSnackbar(ctx.getString(R.string.leveler_auto_off)) }
+                }
+            }
+            /** Removes what compresses or colors the music in this profile; keeps EQ, bass and surround. */
+            fun hifi() {
+                change("volume_leveler_enable" to "0", "ieq_enable" to "0", "dialog_enhancer_enable" to "0", now = false)
+                for (k in listOf(
+                    "reverb_suppression_enable", "mi_ieq_steering_enable", "mi_adaptive_virtualizer_steering_enable",
+                    "mi_dv_leveler_steering_enable", "mi_surround_compressor_steering_enable", "volume_modeler_enable",
+                )) setProf(k, "0", now = false)
+                done()
+                deferred()
+                scope.launch { snack.showSnackbar(ctx.getString(R.string.hifi_done)) }
+            }
             val on = s.dolbyOn
             val tun = s.tuning[endpoint] ?: emptyMap()
             val gains = s.geq[profile]
@@ -330,6 +350,8 @@ fun App(store: DolbyStore) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
                         )
                     }
+                    PrefDivider()
+                    NavPref(stringResource(R.string.hifi), stringResource(R.string.hifi_summary), enabled = on) { hifi() }
                 }
 
                 PrefGroup(stringResource(R.string.group_sound)) {
@@ -369,6 +391,7 @@ fun App(store: DolbyStore) {
                                 if (v != old && g != null) {
                                     setGeq(ToneStore.withBass(ToneStore.withBass(g, old, curve, -1), v, curve, 1))
                                     tone.set(profile, bass = v)
+                                    if (old == 0) levelerOffForGain(v)
                                 }
                             },
                             { done() },
@@ -429,10 +452,13 @@ fun App(store: DolbyStore) {
                     SwitchPref(stringResource(R.string.leveler), stringResource(R.string.leveler_summary), b("volume_leveler_enable"), on) {
                         change("volume_leveler_enable" to bool(it))
                     }
-                    if (b("volume_leveler_enable")) SliderPref(
-                        stringResource(R.string.intensity), i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
-                        { change("volume_leveler_amount" to it.toString(), now = false) }, { done() }
-                    )
+                    if (b("volume_leveler_enable")) {
+                        SliderPref(
+                            stringResource(R.string.intensity), i("volume_leveler_amount"), 0, 10, 1, on, { "$it" },
+                            { change("volume_leveler_amount" to it.toString(), now = false) }, { done() }
+                        )
+                        FooterText(stringResource(R.string.leveler_warning))
+                    }
                     PrefDivider()
                     if (gains != null) SliderPref(
                         stringResource(R.string.extra_gain), tone.gain(profile), 0, 6, 1, on, { "+$it dB" },
@@ -442,6 +468,7 @@ fun App(store: DolbyStore) {
                             if (v != old && g != null) {
                                 setGeq(ToneStore.withGain(ToneStore.withGain(g, old, -1), v, 1))
                                 tone.set(profile, gain = v)
+                                if (old == 0) levelerOffForGain(v)
                             }
                         },
                         { done() },
@@ -467,6 +494,11 @@ fun App(store: DolbyStore) {
                 }
 
                 PrefGroup(stringResource(R.string.group_general)) {
+                    SwitchPref(stringResource(R.string.keeper_pref), stringResource(R.string.keeper_pref_summary), keeperOn, true) {
+                        keeperOn = it
+                        KeeperService.setEnabled(ctx, it)
+                    }
+                    PrefDivider()
                     NavPref(stringResource(R.string.reset_values), stringResource(R.string.reset_values_summary)) { confirmReset = true }
                     PrefDivider()
                     NavPref(stringResource(R.string.updates), stringResource(R.string.updates_summary, Updater.currentVersion(ctx))) { checkUpdate(true) }
